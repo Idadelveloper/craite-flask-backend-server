@@ -32,7 +32,7 @@ generation_config = {
   "top_p": 0.95,
   "top_k": 64,
   "max_output_tokens": 8192,
-  "response_mime_type": "application/json",
+  "response_mime_type": "text/plain",
 }
 
 model = genai.GenerativeModel(
@@ -100,7 +100,7 @@ def process_videos():
         gemini_response = prompt_gemini_api(video_data[0], gemini_prompt)
 
         # Return the response to the Android app
-        return jsonify({'gemini_response': gemini_response})
+        return {'gemini_response': gemini_response.text}
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -169,9 +169,9 @@ def wait_for_file_active(file, timeout=1000):
   while file.state.name == "PROCESSING":
     print('.', end='')
     sleep(240)
-    file = genai.get_file(video_file.name)
+    file = genai.get_file(file.name)
 
-  if video_file.state.name == "FAILED":
+  if file.state.name == "FAILED":
     raise ValueError(file.state.name)
 
     print("...file ready")
