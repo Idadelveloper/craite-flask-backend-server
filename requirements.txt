@@ -7,6 +7,7 @@ cffi==1.16.0
 charset-normalizer==3.3.2
 click==8.1.7
 cryptography==42.0.8
+decorator==4.4.2
 docstring_parser==0.16
 firebase-admin==6.5.0
 Flask==3.0.3
@@ -30,12 +31,17 @@ grpcio==1.64.1
 grpcio-status==1.62.2
 httplib2==0.22.0
 idna==3.7
+imageio==2.34.1
+imageio-ffmpeg==0.5.1
 itsdangerous==2.2.0
 Jinja2==3.1.4
 MarkupSafe==2.1.5
+moviepy==1.0.3
 msgpack==1.0.8
 numpy==1.26.4
 packaging==24.1
+pillow==10.3.0
+proglog==0.1.10
 proto-plus==1.23.0
 protobuf==4.25.3
 pyasn1==0.6.0
@@ -46,6 +52,7 @@ pydantic_core==2.18.4
 PyJWT==2.8.0
 pyparsing==3.1.2
 python-dateutil==2.9.0.post0
+python-dotenv==1.0.1
 requests==2.32.3
 rsa==4.9
 shapely==2.0.4
