@@ -46,13 +46,10 @@ These edits apply to the entire video project:
     Call to Action Overlay: Text overlay prompting viewers to take a specific action, like visiting a website or subscribing to a channel.
     Social Media Handle Overlay: Subtly displays your social media handle throughout the video for audience connection.
 
-You will also generate a voiceover text for the final video as well as a suggested caption in case I am to mape a post. Be sure to include hashtags.
-
-The output must be a pure json response with nothing included in it other than json data beacuse it needs to be parsed based on the key value pairs and errors need to be avoided. Here is a sample output json response you will generate: 
-
+For now, you will come up with proposed video edis. Below is a sample response
 {
     "video_edits": [
-    {
+        {
       "video_name": "video_1",
       "id": 1
       "start_time": 0.0,
@@ -103,18 +100,48 @@ The output must be a pure json response with nothing included in it other than j
       "transition": {
         "type": "dissolve"  // Use dissolve for celebration clip
       }
-    },
     // ... other video edits for clip 2 and beyond ...
-    "suggested_caption": {
-      "text": "Shredding the downhill track with friends! #mtb #adrenaline #friendship",
-      "hashtags": [
-        "mtb",
-        "adrenaline",
-        "friendship",
-        "fun",
-        "action"
-      ]
-    }
+    ]
+    
+    
+}
+
+Now come up with a pure json response of the various different video edits per clip. Here is a breakdown of all the available functionalities of the "video_edits" part:
+video_edits:
+This part defines edits for each video clip of project. A video clip are the various inputed videos. You are to perform different edits per clip basd on the available functions below. Each video edit object contains properties that control how that specific clip is handled:
+video_name: (String) The name of the video clip used in the project.
+start_time: (Number) The starting point of the clip within the video (in seconds).
+end_time: (Number) The ending point of the clip within the video (in seconds).
+edit: (Object) Defines the type of edit applied:
+type: (String) Can be "trim" for shortening the clip, or other edit types supported by your editing software.
+transform: (Object) Optional, specifies any transformations applied:
+Can include properties like "resize" for changing dimensions or "crop" for defining a specific area of focus.
+effects: (Array) A list of effects applied to the clip:
+Each effect is an object with a name property (e.g., "speed", "reverse", "blur", ) and an adjustment value (strength of the effect)
+text: (Array) Optional, defines text overlays within the clip:
+Each text object specifies properties like "label" (text content), "position" (location on screen), "font_size", "color", and "duration" (time the text appears).
+transition: (Object) Optional, defines the transition used when switching to the next clip:
+Has a type property that can be "cut" (abrupt transition), "dissolve" (gradual fade), or other transitions available in your software.
+
+
+
+
+Now generate the global_edits section where you will assume the entire final video is a single video and propose edits for it. Summing up the durations from the video edits you already made
+
+
+
+
+
+
+
+
+
+
+
+
+{
+    "video_edits": [
+    
   ],
   "global_edits": {
     "text": [

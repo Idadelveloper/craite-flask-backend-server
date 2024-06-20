@@ -138,9 +138,9 @@
         // ... voiceover text for other sections based on video content ...
       ],
       "order": [
-        "video_1",
-        "video_2",
-        "video_3"
+        "2",
+        "1",
+        "3"
       ],
       "suggested_caption": {
         "text": "Check out this exciting video with a cool red object and more! #fun #video #creativity",
