@@ -11,6 +11,8 @@ from time import sleep
 from dotenv import load_dotenv
 from moviepy.editor import VideoFileClip, concatenate_videoclips
 import uuid
+import textwrap
+from gemini_response import GeminiResponse
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -31,13 +33,70 @@ generation_config = {
   "temperature": 1,
   "top_p": 0.95,
   "top_k": 64,
-  "max_output_tokens": 8192,
-  "response_mime_type": "text/plain",
+  "max_output_tokens": 100000,
 }
+
+effect = genai.protos.Schema(
+  type=genai.protos.Type.OBJECT,
+  properties = {
+    'name': genai.protos.Schema(type=genai.protos.Type.STRING),
+    'adjustment': genai.protos.Schema(type=genai.protos.Type.STRING),
+    }
+  )
+
+video_edit = genai.protos.Schema(
+  type = genai.protos.Type.OBJECT,
+  properties = {
+    'video_name': genai.protos.Schema(type=genai.protos.Type.STRING),
+    'id': genai.protos.Schema(type=genai.protos.Type.NUMBER),
+    'start_time': genai.protos.Schema(type=genai.protos.Type.STRING),
+    'end_time': genai.protos.Schema(type=genai.protos.Type.STRING),
+    'edit': genai.protos.Schema(
+      type = genai.protos.Type.OBJECT,
+      properties = {
+        'type': genai.protos.Schema(type=genai.protos.Type.STRING)
+      }
+      ),
+    'effects': genai.protos.Schema(
+      type=genai.protos.Type.ARRAY,
+      items = effect
+      ),
+    'text': genai.protos.Schema(type=genai.protos.Type.STRING),
+    'transition': genai.protos.Schema(
+      type = genai.protos.Type.OBJECT,
+      properties = {
+        'type': genai.protos.Schema(type=genai.protos.Type.STRING)
+        }
+    )
+  }
+)
+
+video_edits = genai.protos.Schema(
+  type = genai.protos.Type.ARRAY,
+  items = video_edit
+)
+
+gemini_json = genai.protos.Schema(
+  type = genai.protos.Type.OBJECT,
+  properties = {
+    'video_edits': video_edits
+  }
+)
+
+edits = genai.protos.Tool(
+  function_declarations=[
+    genai.protos.FunctionDeclaration(
+      name='video_edits',
+      description='returns a json object of all the video edit settings',
+      parameters = video_edits
+    )
+  ]
+)
 
 model = genai.GenerativeModel(
   model_name="gemini-1.5-flash",
   generation_config=generation_config,
+  tools = edits
 )
 
 
@@ -101,6 +160,7 @@ def process_videos():
 
         # Prompt the Gemini API with all videos and the prompt
         gemini_response = prompt_gemini_api(video_data[0], gemini_prompt, video_data[1])
+        print(gemini_response.candidates)
 
         # Return the response to the Android app
         return {'gemini_response': gemini_response.text}
@@ -118,9 +178,133 @@ def download_video(video_path, file_path):
 
 # Function to prompt the Gemini API 
 def prompt_gemini_api(video_file, gemini_prompt, video_durations):
-    prompt = "You are a video editor. The given video could either be a single video or a sequence of concatenated videos. For the concatenated video, below are some key-value pairs of the video name alongside its start and end time (video: [start time, end time])\\n\"" + str(video_durations) + "\"\\nThis is what i want for my final video: \"" + gemini_prompt + "\"\\nEven though I have given you a single video, using the above video names and timestamps, treat each as a single video and understand whats going on based on the sound, actions and interactions. The goal is for you to create a video approximately 30 seconds long. You are to create it by understanding what is happening in the video as well as what is I want for the final video and suggest various edit functionalities in a purely json format. Even if I did not specify how the video should look like or it isn't clear, make sure you can identify relevant parts or clips of the video that will match the audio and if how the video should look like was specified, make sure your suggestions matches it too. \nThe goal is to capture and suggest the key moments and best parts of the video(s) while making sure they all sum up to at most the time limit. You are to suggest the text formatting(bold, italics, underline,font size, text positioning), perform video editing like changes in brightness, contrast, saturation, exposure, sharpness, cropping & resizing, effects, rotation and flipping, trimming, splitting and cutting, adding text overlays, speed changes, transitions, and captions. Different edit functionalities can be performed on a single video at different time intervals and the videos must not appear chronologically. You decide how they appear based on the message you are trying to pass.\n\nThese are the various edit functionalities a you must use on the video. All must not be used at one. Select which is most appropriate for the given scenario and goal.\n\nYou are to carry out this by proposing time stamp intervals for each video and the edit fuctionalities to be performed during that interval. You decide on which edits go where based on what is expected of you and the goal is to make the result as interesting, creative and as engaging as possible. Try as much as possible to identify the specified content type if mentioned and work towards delivering something creative in that area or get creative and come up wit what you believe is best. Some of this content type include comedy skits, dance trends, lip-syncing, tutorials, product demons, vlogs, reviews, etc. You will suggest how the videos are displayed and what to include or exclude so as to pass the information needed or make it as interesting and creative as possible. Make the you try to make the audio sync with the video for better results. \n\nBelow is a list of all the video editting functionalities:\n- Basic Adjustments:\n    Brightness: Adjusts the overall lightness or darkness of the video.\n    Contrast: Controls the difference between light and dark areas in the video, creating a more dramatic or flat look.\n    Saturation: Alters the intensity of colors within the video, making them appear more vibrant (higher saturation) or muted (lower saturation).\n    Exposure: Controls the overall amount of light captured in the video. Adjusting exposure can affect brightness and contrast.\n    Sharpness: Enhances the crispness and definition of edges in the video.\n\n- Transformations:\n    Resize: Changes the dimensions (width and height) of the video clip.\n    Crop: Defines a specific rectangular area to focus on within the video frame.\n\n- Effects:\n    Speed: Controls the playback speed of the video clip. Values greater than 1.0 speed up the video, while values less than 1.0 slow it down.\n\n- Text Overlays:\n    Label: Defines the text content to be displayed on the screen.\n    Position: Specifies the location of the text overlay (e.g., top-center, bottom-right).\n    Font Size: Sets the size of the text.\n    Color: Defines the color of the text.\n    Duration: Determines how long the text overlay appears on the screen.\n\n- Transitions:\n    Cut: An abrupt transition from one clip to the next without any fade effect.\n    Dissolve: A gradual fade from one clip to the next, creating a smoother transition.\n    (There can be other transition types available depending on your editing software.)\n\n- Audio Edits:\n    Sound Effects: External audio elements inserted at specific points in the video to enhance specific moments.\n    Fade In/Out: Gradual increase or decrease in volume at the beginning and end of the video, respectively.\n\n- Global Edits:\nThese edits apply to the entire video project:\n    Call to Action Overlay: Text overlay prompting viewers to take a specific action, like visiting a website or subscribing to a channel.\n    Social Media Handle Overlay: Subtly displays your social media handle throughout the video for audience connection.\n\nFor now, you will come up with proposed video edis. Below is a sample response\n{\n    \"video_edits\": [\n        {\n      \"video_name\": \"video_1\",\n      \"id\": 1\n      \"start_time\": 0.0,\n      \"end_time\": 20.0,\n      \"edit\": {\n        \"type\": \"trim\"\n      },\n      \"transform\": \"None\",\n      \"effects\": [\n        {\n          \"name\": \"speed\",\n          \"factor\": 1.2  // Increase speed slightly for a fast-paced feel\n        },\n        {\n          \"name\": \"brightness\",\n          \"adjustment\": 0.1  // Adjust based on video content\n        },\n        {\n          \"name\": \"contrast\",\n          \"adjustment\": 0.15  // Adjust based on video content\n        }\n      ],\n      \"text\": [],\n      \"transition\": {\n        \"type\": \"cut\"  // Suggest quick cuts for a dynamic vibe\n      }\n    },\n    {\n      \"video_name\": \"video_2\",\n      \"id\": 2\n      \"start_time\": 0.0,\n      \"end_time\": 10.0,\n      \"edit\": {\n        \"type\": \"trim\"\n      },\n      \"transform\": \"None\",\n      \"effects\": [\n        {\n          \"name\": \"saturation\",\n          \"adjustment\": 0.1  // Adjust based on video content\n        },\n        {\n          \"name\": \"sharpen\",\n          \"level\": 0.5  // Adjust based on video content\n        }\n      ],\n      \"text\": [],\n      \"transition\": {\n        \"type\": \"dissolve\"  // Use dissolve for celebration clip\n      }\n    // ... other video edits for clip 2 and beyond ...\n    ]\n    \n    \n}\n\nNow come up with a pure json response of the various different video edits per clip. Here is a breakdown of all the available functionalities of the \"video_edits\" part:\nvideo_edits:\nThis part defines edits for each video clip of project. A video clip are the various inputed videos. You are to perform different edits per clip basd on the available functions below. Each video edit object contains properties that control how that specific clip is handled:\nvideo_name: (String) The name of the video clip used in the project.\nstart_time: (Number) The starting point of the clip within the video (in seconds).\nend_time: (Number) The ending point of the clip within the video (in seconds).\nedit: (Object) Defines the type of edit applied:\ntype: (String) Can be \"trim\" for shortening the clip, or other edit types supported by your editing software.\ntransform: (Object) Optional, specifies any transformations applied:\nCan include properties like \"resize\" for changing dimensions or \"crop\" for defining a specific area of focus.\neffects: (Array) A list of effects applied to the clip:\nEach effect is an object with a name property (e.g., \"speed\", \"reverse\", \"blur\", ) and an adjustment value (strength of the effect)\ntext: (Array) Optional, defines text overlays within the clip:\nEach text object specifies properties like \"label\" (text content), \"position\" (location on screen), \"font_size\", \"color\", and \"duration\" (time the text appears).\ntransition: (Object) Optional, defines the transition used when switching to the next clip:\nHas a type property that can be \"cut\" (abrupt transition), \"dissolve\" (gradual fade), or other transitions available in your software.\n If for whatsoever reason you cannot produce a response or come up with video editing functionalities, simply write 'cannot produce response'"
+    user_prompt = "You are a video editor. The given video could either be a single video or a sequence of concatenated videos. For the concatenated video, below are some key-value pairs of the video name alongside its start and end time (video: [start time, end time])\\n\"" + str(video_durations) + "\"\\nThis is what i want for my final video: \"" + gemini_prompt + "\"\\nEven though I have given you a single video, using the above video names and timestamps, treat each as a single video and understand whats going on based on the sound, actions and interactions. The goal is for you to create a video approximately 30 seconds long."
 
-    response = model.generate_content([video_file, prompt])
+    prompt = textwrap.dedent("""
+   You are to create it by understanding what is happening in the video as well as what is I want for the final video and suggest various edit functionalities in a purely json format. Even if I did not specify how the video should look like or it isn't clear, make sure you can identify relevant parts or clips of the video that will match the audio and if how the video should look like was specified, make sure your suggestions matches it too. 
+  The goal is to capture and suggest the key moments and best parts of the video(s) while making sure they all sum up to at most the time limit. You are to suggest the text formatting(bold, italics, underline,font size, text positioning), perform video editing like changes in brightness, contrast, saturation, exposure, sharpness, cropping & resizing, effects, rotation and flipping, trimming, splitting and cutting, adding text overlays, speed changes, transitions, and captions. Different edit functionalities can be performed on a single video at different time intervals and the videos must not appear chronologically. You decide how they appear based on the message you are trying to pass. You can trim a single video clip multiple times at different timestamps if possible. 
+
+  These are the various edit functionalities a you must use on the video. All must not be used at one. Select which is most appropriate for the given scenario and goal.
+
+  You are to carry out this by proposing time stamp intervals for each video and the edit fuctionalities to be performed during that interval. You decide on which edits go where based on what is expected of you and the goal is to make the result as interesting, creative and as engaging as possible. Try as much as possible to identify the specified content type if mentioned and work towards delivering something creative in that area or get creative and come up wit what you believe is best. Some of this content type include comedy skits, dance trends, lip-syncing, tutorials, product demons, vlogs, reviews, etc. You will suggest how the videos are displayed and what to include or exclude so as to pass the information needed or make it as interesting and creative as possible. Make the you try to make the audio sync with the video for better results. 
+
+  Below is a list of all the video editting functionalities:
+  - Basic Adjustments:
+      Brightness: Adjusts the overall lightness or darkness of the video.
+      Contrast: Controls the difference between light and dark areas in the video, creating a more dramatic or flat look.
+      Saturation: Alters the intensity of colors within the video, making them appear more vibrant (higher saturation) or muted (lower saturation).
+      Exposure: Controls the overall amount of light captured in the video. Adjusting exposure can affect brightness and contrast.
+      Sharpness: Enhances the crispness and definition of edges in the video.
+
+  - Transformations:
+      Resize: Changes the dimensions (width and height) of the video clip.
+      Crop: Defines a specific rectangular area to focus on within the video frame.
+
+  - Effects:
+      Speed: Controls the playback speed of the video clip. Values greater than 1.0 speed up the video, while values less than 1.0 slow it down.
+
+  - Text Overlays:
+      Label: Defines the text content to be displayed on the screen.
+      Position: Specifies the location of the text overlay (e.g., top-center, bottom-right).
+      Font Size: Sets the size of the text.
+      Color: Defines the color of the text.
+      Duration: Determines how long the text overlay appears on the screen.
+
+  - Transitions:
+      Cut: An abrupt transition from one clip to the next without any fade effect.
+      Dissolve: A gradual fade from one clip to the next, creating a smoother transition.
+      (There can be other transition types available depending on your editing software.)
+
+  - Audio Edits:
+      Sound Effects: External audio elements inserted at specific points in the video to enhance specific moments.
+      Fade In/Out: Gradual increase or decrease in volume at the beginning and end of the video, respectively.
+
+  - Global Edits:
+  These edits apply to the entire video project:
+      Call to Action Overlay: Text overlay prompting viewers to take a specific action, like visiting a website or subscribing to a channel.
+      Social Media Handle Overlay: Subtly displays your social media handle throughout the video for audience connection.
+
+  For now, you will come up with proposed video edis. Below is a sample response
+  {
+      "video_edits": [
+          {
+        "video_name": "video_1",
+        "id": 1
+        "start_time": 0.0,
+        "end_time": 20.0,
+        "edit": {
+          "type": "trim"
+        },
+        "transform": "None",
+        "effects": [
+          {
+            "name": "speed",
+            "adjectment": 1.2  // Increase speed slightly for a fast-paced feel
+          },
+          {
+            "name": "brightness",
+            "adjustment": 0.1  // Adjust based on video content
+          },
+          {
+            "name": "contrast",
+            "adjustment": 0.15  // Adjust based on video content
+          }
+        ],
+        "text": [],
+        "transition": {
+          "type": "cut"  // Suggest quick cuts for a dynamic vibe
+        }
+      },
+      {
+        "video_name": "video_2",
+        "id": 2
+        "start_time": 0.0,
+        "end_time": 10.0,
+        "edit": {
+          "type": "trim"
+        },
+        "transform": "None",
+        "effects": [
+          {
+            "name": "saturation",
+            "adjustment": 0.1  // Adjust based on video content
+          },
+          {
+            "name": "sharpen",
+            "adjustment": 0.5  // Adjust based on video content
+          }
+        ],
+        "text": [],
+        "transition": {
+          "type": "dissolve"  // Use dissolve for celebration clip
+        }
+      // ... other video edits for clip 2 and beyond ...
+      ]
+      
+      
+  }
+
+  Now come up with a pure json response of the various different video edits per clip. Here is a breakdown of all the available functionalities of the "video_edits" part:
+  video_edits:
+  This part defines edits for each video clip of project. A video clip are the various inputed videos. You are to perform different edits per clip basd on the available functions below. Each video edit object contains properties that control how that specific clip is handled:
+  video_name: (String) The name of the video clip used in the project.
+  start_time: (Number) The starting point of the video clip you are suggesting based of the video name  (in seconds).
+  end_time: (Number) The ending point of the new video clip you are suggesting vased on the existing video you are suggesting (in seconds).
+  edit: (Object) Defines the type of edit applied:
+  type: (String) Can be "trim" for shortening the clip, or other edit types supported by your editing software.
+  transform: (Object) Optional, specifies any transformations applied:
+  Can include properties like "resize" for changing dimensions or "crop" for defining a specific area of focus.
+  effects: (Array) A list of effects applied to the clip:
+  Each effect is an object with a name property (e.g., "speed", "reverse", "blur", ) and an adjustment value (strength of the effect)
+  text: (Array) Optional, defines text overlays within the clip:
+  Each text object specifies properties like "label" (text content), "position" (location on screen), "font_size", "color", and "duration" (time the text appears).
+  transition: (Object) Optional, defines the transition used when switching to the next clip:
+  Has a type property that can be "cut" (abrupt transition), "dissolve" (gradual fade), or other transitions available in your software.
+
+  If for whatsoever reason you cannot produce a response or come up with video editing functionalities, simply write 'cannot produce response'. Otherwise, the response should be in pure raw json format given the structure above. Make sure you don't exceed the maximum output tokens of 100000
+  """)
+    new_prompt = user_prompt + prompt
+    response = model.generate_content([video_file, new_prompt], tool_config={'function_calling_config':'ANY'})
     return response
 
 def upload_to_gemini(path, mime_type=None):
@@ -232,4 +416,27 @@ def concatenate_videos(video_data, output_dir):
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+
+    
+
+def return_video_edit(video_name, _id, start_time, end_time, edit, effects, text, transition):
+  return {
+    'video_name': video_name,
+    'id': _id,
+    'start_time': start_time,
+    'end_time': end_time,
+    'edit': edit,
+    'effects': effects,
+    'text': text,
+    'transition': transition
+  }
+
+def return_effect(name, adjustment):
+  return {
+    'name': name,
+    'adjustment': adjustment,
+    }
+
+
 
