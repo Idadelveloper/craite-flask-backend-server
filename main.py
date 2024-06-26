@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from moviepy.editor import VideoFileClip, concatenate_videoclips
 import uuid
 import textwrap
-from gemini_response import GeminiResponse
+import json
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -96,7 +96,7 @@ edits = genai.protos.Tool(
 model = genai.GenerativeModel(
   model_name="gemini-1.5-flash",
   generation_config=generation_config,
-  tools = edits
+  tools = [edits]
 )
 
 
@@ -160,13 +160,42 @@ def process_videos():
 
         # Prompt the Gemini API with all videos and the prompt
         gemini_response = prompt_gemini_api(video_data[0], gemini_prompt, video_data[1])
-        print(gemini_response.candidates)
+        print(gemini_response)
 
         # Return the response to the Android app
-        return {'gemini_response': gemini_response.text}
+        return {'gemini_response': gemini_response}
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+
+
+
+
+
+def return_video_edit(video_name, _id, start_time, end_time, edit, effects, text, transition):
+  return {
+    'video_name': video_name,
+    'id': _id,
+    'start_time': start_time,
+    'end_time': end_time,
+    'edit': edit,
+    'effects': effects,
+    'text': text,
+    'transition': transition
+  }
+
+def return_effect(name, adjustment):
+  return {
+    'name': name,
+    'adjustment': adjustment,
+    }
+
+
+
+
+
 
 
 # Function to download a video from Firebase Storage
@@ -301,11 +330,34 @@ def prompt_gemini_api(video_file, gemini_prompt, video_durations):
   transition: (Object) Optional, defines the transition used when switching to the next clip:
   Has a type property that can be "cut" (abrupt transition), "dissolve" (gradual fade), or other transitions available in your software.
 
-  If for whatsoever reason you cannot produce a response or come up with video editing functionalities, simply write 'cannot produce response'. Otherwise, the response should be in pure raw json format given the structure above. Make sure you don't exceed the maximum output tokens of 100000
+  If for whatsoever reason you cannot produce a response or come up with video editing functionalities, simply write 'cannot produce response'. Otherwise, the response should be in pure raw json given the structure above. The response should begin with a '{' and end with '}'. Make sure you don't exceed the maximum output tokens of 100000.
+  
   """)
     new_prompt = user_prompt + prompt
     response = model.generate_content([video_file, new_prompt], tool_config={'function_calling_config':'ANY'})
-    return response
+    print(response.text)
+    res = response.text
+    lines = res.splitlines(keepends=True)
+    res = ''.join(lines[1:-1])
+    gemini_response_json = json.loads(res)
+    print(json.dumps(gemini_response_json, indent=4))
+
+    # Process Gemini response and create video edits using function calls
+    video_edits = []
+    for edit in gemini_response_json['video_edits']:
+      video_name = edit['video_name']
+      _id = edit['id']
+      start_time = edit['start_time']
+      end_time = edit['end_time']
+      edit_type = edit['edit']['type']
+      effects = [return_effect(effect['name'], effect['adjustment']) for effect in edit['effects']]
+      text = edit['text']  # Assuming text is a list of dictionaries
+      transition = edit['transition']['type']
+      video_edits.append(return_video_edit(video_name, _id, start_time, end_time, edit_type, effects, text, transition))
+
+    return {
+      'video_edits': video_edits
+    }
 
 def upload_to_gemini(path, mime_type=None):
   """Uploads the given file to Gemini.
@@ -420,23 +472,7 @@ if __name__ == '__main__':
 
     
 
-def return_video_edit(video_name, _id, start_time, end_time, edit, effects, text, transition):
-  return {
-    'video_name': video_name,
-    'id': _id,
-    'start_time': start_time,
-    'end_time': end_time,
-    'edit': edit,
-    'effects': effects,
-    'text': text,
-    'transition': transition
-  }
 
-def return_effect(name, adjustment):
-  return {
-    'name': name,
-    'adjustment': adjustment,
-    }
 
 
 
