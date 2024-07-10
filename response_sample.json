@@ -1,0 +1,79 @@
+{
+    "gemini_response": {
+        "video_edits": [
+            {
+                "edit": "trim",
+                "effects": [],
+                "end_time": 2.0,
+                "id": 1,
+                "start_time": 0.0,
+                "text": [],
+                "transition": "cut",
+                "video_name": "/tmp/tmpn45wu176/video_0_1718959816080.mp4"
+            },
+            {
+                "edit": "trim",
+                "effects": [
+                    {
+                        "adjustment": 1.2,
+                        "name": "speed"
+                    }
+                ],
+                "end_time": 5.0,
+                "id": 2,
+                "start_time": 0.0,
+                "text": [
+                    {
+                        "color": "white",
+                        "duration": 3,
+                        "font_size": 20,
+                        "label": "Graduation Day!",
+                        "position": "top-center"
+                    }
+                ],
+                "transition": "cut",
+                "video_name": "/tmp/tmpn45wu176/video_1_1718959816136.mp4"
+            },
+            {
+                "edit": "trim",
+                "effects": [
+                    {
+                        "adjustment": 0.5,
+                        "name": "speed"
+                    }
+                ],
+                "end_time": 1.0,
+                "id": 3,
+                "start_time": 0.0,
+                "text": [],
+                "transition": "cut",
+                "video_name": "/tmp/tmpn45wu176/video_2_1718959816170.mp4"
+            },
+            {
+                "edit": "trim",
+                "effects": [],
+                "end_time": 4.0,
+                "id": 4,
+                "start_time": 0.0,
+                "text": [],
+                "transition": "dissolve",
+                "video_name": "/tmp/tmpn45wu176/video_3_1718959816192.mp4"
+            },
+            {
+                "edit": "trim",
+                "effects": [
+                    {
+                        "adjustment": 0.2,
+                        "name": "brightness"
+                    }
+                ],
+                "end_time": 2.0,
+                "id": 5,
+                "start_time": 0.0,
+                "text": [],
+                "transition": "cut",
+                "video_name": "/tmp/tmpn45wu176/video_4_1718959816213.mp4"
+            }
+        ]
+    }
+}

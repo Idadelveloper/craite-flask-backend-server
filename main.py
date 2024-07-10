@@ -174,13 +174,12 @@ def process_videos():
 
 
 
-def return_video_edit(video_name, _id, start_time, end_time, edit, effects, text, transition):
+def return_video_edit(_id, video_name, start_time, end_time, effects, text, transition):
   return {
-    'video_name': video_name,
     'id': _id,
+    'video_name': video_name,
     'start_time': start_time,
     'end_time': end_time,
-    'edit': edit,
     'effects': effects,
     'text': text,
     'transition': transition
@@ -191,6 +190,14 @@ def return_effect(name, adjustment):
     'name': name,
     'adjustment': adjustment,
     }
+
+def return_text(text, font_size, text_color, background_color):
+  return {
+    "text": text,
+    "font_size": font_size,
+    "text_color": text_color,
+    "background_color": background_color
+  }
 
 
 
@@ -207,130 +214,222 @@ def download_video(video_path, file_path):
 
 # Function to prompt the Gemini API 
 def prompt_gemini_api(video_file, gemini_prompt, video_durations):
-    user_prompt = "You are a video editor. The given video could either be a single video or a sequence of concatenated videos. For the concatenated video, below are some key-value pairs of the video name alongside its start and end time (video: [start time, end time])\\n\"" + str(video_durations) + "\"\\nThis is what i want for my final video: \"" + gemini_prompt + "\"\\nEven though I have given you a single video, using the above video names and timestamps, treat each as a single video and understand whats going on based on the sound, actions and interactions. The goal is for you to create a video approximately 30 seconds long."
+    user_prompt = "You are a video editor. The given video could either be a single video or a sequence of concatenated videos. For the concatenated video, below are some key-value pairs of the video name alongside its start and end time (video_name: [start time, end time])\\n\"" + str(video_durations) + "\"\\nThis is what the user wants for their final video final video: \"" + gemini_prompt + "\"\\nEven though you have been provided a single video, using the above video names and timestamps, treat each as a single video and understand whats going on based on the sound, actions and interactions. The goal is for you to create a video not more than 60 seconds long.\n Make sure you identify each clip by looking at its video name above and check its corresponding timeframe based on its start and ending timestamp in the inputted video. After identifying a video, treat it as an independent video. Forexample if you identify a video from the 10th to the 15th second, treat that video as a independent 5 second video. All the videos you identify and isolate will be considered as the videoclips where you will carryout various edit functionalities on them"
 
     prompt = textwrap.dedent("""
-   You are to create it by understanding what is happening in the video as well as what is I want for the final video and suggest various edit functionalities in a purely json format. Even if I did not specify how the video should look like or it isn't clear, make sure you can identify relevant parts or clips of the video that will match the audio and if how the video should look like was specified, make sure your suggestions matches it too. 
-  The goal is to capture and suggest the key moments and best parts of the video(s) while making sure they all sum up to at most the time limit. You are to suggest the text formatting(bold, italics, underline,font size, text positioning), perform video editing like changes in brightness, contrast, saturation, exposure, sharpness, cropping & resizing, effects, rotation and flipping, trimming, splitting and cutting, adding text overlays, speed changes, transitions, and captions. Different edit functionalities can be performed on a single video at different time intervals and the videos must not appear chronologically. You decide how they appear based on the message you are trying to pass. You can trim a single video clip multiple times at different timestamps if possible. 
+    You are to create edit settings by understanding what is happening in each of the video clips you identified as stated above as well as what the user wants for the final video and suggest various edit functionalities in a purely json format. Even if the user did not specify did not specify how the video should look like or it isn't clear, make sure you can identify relevant parts or clips of the video that will match the audio and if how the video should look like was specified, make sure your suggestions matches it too. 
+    The goal is to capture and suggest the key moments and best parts of the video(s) while making sure they all sum up to at most the time limit. You are to suggest the text overlays, perform video editing like changes in brightness, contrast, saturation. Different edit functionalities can be performed on a single video clip at different time intervals and the videos must not appear in the order they came in. You decide how they appear based on the message you are trying to pass. You can trim a single video clip multiple times at different timestamps if possible. 
 
-  These are the various edit functionalities a you must use on the video. All must not be used at one. Select which is most appropriate for the given scenario and goal.
+    Here is a sample of how the json response you must return should look like:
+    "video_edits": [
+              {
+                  "id": 1,
+                  "video_name": "/tmp/tmpn45wu176/video_0_1718959816080.mp4",
+                  "start_time": 0.734861348165432,
+                  "end_time": 3.530177287369108,
+                  "effects": [
+                      {
+                          "name": "brightness",
+                          "adjustment": [0.3333637]
+                      }
+                  ],
+                  "text": [
+                      {
+                          "text": "Having some coffee with my sister",
+                          "font_size": 28,
+                          "text_color": "#3de490",
+                          "background_color": "#80000000"
+                      }
+                      
+                  ],
+                  "transition": "fade"
+                  
+              },
+              {
+                  "id": 2,
+                  "video_name": "/tmp/tmpn45wu176/video_1_1718959816136.mp4",
+                  "start_time": 0.401773244161053,
+                  "end_time": 2.8618605101782535,
+                  "effects": [
+                      {
+                          "name": "brightness",
+                          "adjustment": [-0.46320993]
+                      },
+                      {
+                          "name": "contrast",
+                          "adjustment": [0.3143587]
+                      },
+                      {
+                          "name": "saturation",
+                          "adjustment": [1.4236718]
+                      }
+                  ],
+                  "text": [
+                      {
+                          "text": "The coffee tasted delicious",
+                          "font_size": 26,
+                          "text_color": "#223a18",
+                          "background_color": "#80000000"
+                      }
+                      
+                  ],
+                  "transition": ""
+                  
+              },
+              {
+                  "id": 3,
+                  "video_name": "/tmp/tmpn45wu176/video_3_1718959816192.mp4",
+                  "start_time": 3.49878691889803517,
+                  "end_time": 6.981376295379518,
+                  "effects": [
+                      {
+                          "name": "brightness",
+                          "adjustment": [-0.46320993]
+                      },
+                      {
+                          "name": "saturation",
+                          "adjustment": [1.3028498]
+                      }
+                  ],
+                  "text": [
+                      {
+                          "text": "Guess who walked in? My brother",
+                          "font_size": 26,
+                          "text_color": "#171f34",
+                          "background_color": "#80000000"
+                      }
+                      
+                  ],
+                  "transition": "fade"
+                  
+              },
+              {
+                  "id": 4,
+                  "video_name": "/tmp/tmpn45wu176/video_4_1718959816213.mp4",
+                  "start_time": 0.665023107211262,
+                  "end_time": 2.9066618703894362,
+                  "effects": [
+                      {
+                          "name": "saturation",
+                          "adjustment": [0.506017]
+                      }
+                  ],
+                  "text": [],
+                  "transition": "slide"
+                  
+              },
+              {
+                  "id": 5,
+                  "video_name": "/tmp/tmpn45wu176/video_4_1718959816213.mp4",
+                  "start_time": 4.268023107211265,
+                  "end_time": 8.5066638703894361,
+                  "effects": [
+                      {
+                          "name": "brightness",
+                          "adjustment": [0.032896698]
+                      },
+                      {
+                          "name": "contrast",
+                          "adjustment": [0.018022478]
+                      }
+                  ],
+                  "text": [],
+                  "transition": "cross-fade"
+                  
+              },
+              {
+                  "id": 6,
+                  "video_name": "/tmp/tmpn45wu176/video_5_1718959816192.mp4",
+                  "start_time": 0.8979263059372027,
+                  "end_time": 3.355789246300705,
+                  "effects": [
+                      {
+                          "name": "brightness",
+                          "adjustment": [-0.40000975]
+                      },
+                      {
+                          "name": "contrast",
+                          "adjustment": [0.8433415]
+                      },
+                      {
+                          "name": "saturation",
+                          "adjustment": [1.0755221]
+                      }
+                  ],
+                  "text": [
+                      {
+                          "text": "We all had such a great time",
+                          "font_size": 22,
+                          "text_color": "#f97b5d",
+                          "background_color": "#80000000"
+                      }
+                      
+                  ],
+                  "transition": "fade"
+                  
+              }
+          ]
+    }
 
-  You are to carry out this by proposing time stamp intervals for each video and the edit fuctionalities to be performed during that interval. You decide on which edits go where based on what is expected of you and the goal is to make the result as interesting, creative and as engaging as possible. Try as much as possible to identify the specified content type if mentioned and work towards delivering something creative in that area or get creative and come up wit what you believe is best. Some of this content type include comedy skits, dance trends, lip-syncing, tutorials, product demons, vlogs, reviews, etc. You will suggest how the videos are displayed and what to include or exclude so as to pass the information needed or make it as interesting and creative as possible. Make the you try to make the audio sync with the video for better results. 
+    Let's break down this JSON response and understand what each part of the video edit settings means:
+    Think of this JSON like a recipe for editing a bunch of videos and stitching them together. Each item in the video_edits list is like instructions for a single video clip.
+    Let's look at one of these video edit instructions:
 
-  Below is a list of all the video editting functionalities:
-  - Basic Adjustments:
-      Brightness: Adjusts the overall lightness or darkness of the video.
-      Contrast: Controls the difference between light and dark areas in the video, creating a more dramatic or flat look.
-      Saturation: Alters the intensity of colors within the video, making them appear more vibrant (higher saturation) or muted (lower saturation).
-      Exposure: Controls the overall amount of light captured in the video. Adjusting exposure can affect brightness and contrast.
-      Sharpness: Enhances the crispness and definition of edges in the video.
-
-  - Transformations:
-      Resize: Changes the dimensions (width and height) of the video clip.
-      Crop: Defines a specific rectangular area to focus on within the video frame.
-
-  - Effects:
-      Speed: Controls the playback speed of the video clip. Values greater than 1.0 speed up the video, while values less than 1.0 slow it down.
-
-  - Text Overlays:
-      Label: Defines the text content to be displayed on the screen.
-      Position: Specifies the location of the text overlay (e.g., top-center, bottom-right).
-      Font Size: Sets the size of the text.
-      Color: Defines the color of the text.
-      Duration: Determines how long the text overlay appears on the screen.
-
-  - Transitions:
-      Cut: An abrupt transition from one clip to the next without any fade effect.
-      Dissolve: A gradual fade from one clip to the next, creating a smoother transition.
-      (There can be other transition types available depending on your editing software.)
-
-  - Audio Edits:
-      Sound Effects: External audio elements inserted at specific points in the video to enhance specific moments.
-      Fade In/Out: Gradual increase or decrease in volume at the beginning and end of the video, respectively.
-
-  - Global Edits:
-  These edits apply to the entire video project:
-      Call to Action Overlay: Text overlay prompting viewers to take a specific action, like visiting a website or subscribing to a channel.
-      Social Media Handle Overlay: Subtly displays your social media handle throughout the video for audience connection.
-
-  For now, you will come up with proposed video edis. Below is a sample response
-  {
-      "video_edits": [
-          {
-        "video_name": "video_1",
-        "id": 1
-        "start_time": 0.0,
-        "end_time": 20.0,
-        "edit": {
-          "type": "trim"
-        },
-        "transform": "None",
+    {
+        "id": 1,
+        "video_name": "/tmp/tmpn45wu176/video_0_1718959816080.mp4",
+        "start_time": 0.734861348165432,
+        "end_time": 3.530177287369108,
         "effects": [
-          {
-            "name": "speed",
-            "adjectment": 1.2  // Increase speed slightly for a fast-paced feel
-          },
-          {
-            "name": "brightness",
-            "adjustment": 0.1  // Adjust based on video content
-          },
-          {
-            "name": "contrast",
-            "adjustment": 0.15  // Adjust based on video content
-          }
+            {
+                "name": "brightness",
+                "adjustment": [0.3333637]
+            }
         ],
-        "text": [],
-        "transition": {
-          "type": "cut"  // Suggest quick cuts for a dynamic vibe
-        }
-      },
-      {
-        "video_name": "video_2",
-        "id": 2
-        "start_time": 0.0,
-        "end_time": 10.0,
-        "edit": {
-          "type": "trim"
-        },
-        "transform": "None",
-        "effects": [
-          {
-            "name": "saturation",
-            "adjustment": 0.1  // Adjust based on video content
-          },
-          {
-            "name": "sharpen",
-            "adjustment": 0.5  // Adjust based on video content
-          }
+        "text": [
+            {
+                "text": "Having some coffee with my sister",
+                "font_size": 28,
+                "text_color": "#3de490",
+                "background_color": "#80000000"
+            }
         ],
-        "text": [],
-        "transition": {
-          "type": "dissolve"  // Use dissolve for celebration clip
-        }
-      // ... other video edits for clip 2 and beyond ...
-      ]
-      
-      
-  }
+        "transition": "fade"
+    }
 
-  Now come up with a pure json response of the various different video edits per clip. Here is a breakdown of all the available functionalities of the "video_edits" part:
-  video_edits:
-  This part defines edits for each video clip of project. A video clip are the various inputed videos. You are to perform different edits per clip basd on the available functions below. Each video edit object contains properties that control how that specific clip is handled:
-  video_name: (String) The name of the video clip used in the project.
-  start_time: (Number) The starting point of the video clip you are suggesting based of the video name  (in seconds).
-  end_time: (Number) The ending point of the new video clip you are suggesting vased on the existing video you are suggesting (in seconds).
-  edit: (Object) Defines the type of edit applied:
-  type: (String) Can be "trim" for shortening the clip, or other edit types supported by your editing software.
-  transform: (Object) Optional, specifies any transformations applied:
-  Can include properties like "resize" for changing dimensions or "crop" for defining a specific area of focus.
-  effects: (Array) A list of effects applied to the clip:
-  Each effect is an object with a name property (e.g., "speed", "reverse", "blur", ) and an adjustment value (strength of the effect)
-  text: (Array) Optional, defines text overlays within the clip:
-  Each text object specifies properties like "label" (text content), "position" (location on screen), "font_size", "color", and "duration" (time the text appears).
-  transition: (Object) Optional, defines the transition used when switching to the next clip:
-  Has a type property that can be "cut" (abrupt transition), "dissolve" (gradual fade), or other transitions available in your software.
+    Here's what each part means:
+    - id: This is like a unique number tag for the trimmed version of this video clip. So, after we trim this video, we'll think of it as "video clip number 1". This is important for putting the clips in the right order later. It's always a whole number (an integer).
+    - video_name: This is the video name assigneed to that video clip. It's like saying, "Hey, go find this specific video to work with." Each video has a unique name, so we don't get them mixed up.
+    - start_time: This tells us where to start chopping the video, measured in seconds. It's a decimal number (a float) because we might want to start at a very precise moment, like 0.734 seconds in. The start_time MUST not begin at 0
+    - end_time: This tells us where to stop chopping the video, also in seconds and also a float for precision. So, for this clip, we're only using the part of the video between 0.734 seconds and 3.530 seconds. The end_time MUST not begin at the last second.
 
-  If for whatsoever reason you cannot produce a response or come up with video editing functionalities, simply write 'cannot produce response'. Otherwise, the response should be in pure raw json given the structure above. The response should begin with a '{' and end with '}'. Make sure you don't exceed the maximum output tokens of 100000.
+
+    effects: This is a list of special visual tweaks we want to apply to the video clip. Think of it like adding filters on Instagram. Right now, we only have three options:
+    - **`brightness`:** This controls how bright or dark the clip looks.  The adjustment value is a number between -1 and 1.  Zero means no change, positive numbers make it brighter, and negative numbers make it darker.  In this example, 0.333 makes the clip a bit brighter.
+    - **`contrast`:** This controls the difference between the darkest and lightest parts of the clip.  Again, the adjustment is between -1 and 1.  Zero means no change, positive numbers increase the contrast (making darks darker and lights lighter), and negative numbers decrease the contrast (making everything look more similar in brightness).
+    - **`saturation`:** This controls how vivid the colors in the clip are.  Zero means black and white, 1 means normal colors, and numbers above 1 make the colors super intense.
+    text: This is a list of text overlays we want to put on top of the video. Each text overlay has:
+    - **`text`:** The actual words to display.
+    - **`font_size`:** How big the text should be in pixels for a mobile device
+    - **`text_color`:** The color of the text, written as a hex code (like #3de490 for a greenish color).
+    - **`background_color`:** The color behind the text, also a hex code.  "#80000000" means a semi-transparent black, so the video can still be seen a bit behind the text.
+
+    transition: This tells us how to smoothly blend this clip with the next one in the sequence. "fade" means the clip will slowly fade out as the next one fades in. There are other options like "slide" or "cross-fade". If it's empty (like in the second video edit), there's no special transition.
+
+
+    Important Notes:
+    - Multiple Edits on One Video: You noticed that video IDs 4 and 5 use the same video_name. This means we can take different chunks of the same original video and edit them separately!
+    - No Text Required: Some video edits might not have any text overlays, like video ID 5. That's totally fine!
+    No Effects Required: Some videos might also not have any effects.
+    - When suggesting the start_time and end_time for a video clip to be trimmed, remember to isolate that clip. If that clip happened to be between the 10th and the 15th second of the original clip, consider it a 0 to 5 seconds video and suggest edits on it like you will suggest on a 0 to 5 seconds video. For example for this clip we can condider to have start time at 1.00345 and end time at 4.55789 rather than at 11.00345 and 14.55789 respectfully. Know that in this video clip you are identifying interesting parts relevant to the final video you are trying to create so the start time must not be exactly at the 0th second neither must the end time necesarily be at the last second of the video clip. Try to be flexible.
+    - The IDs are integers that dictate the sequence in which the new video clips must appear in the final video
+    - when proposing the edit settings sum up the different timeframes making sure it doesn't exceed the duration limit above.
+
+
+  You are to carry out this by proposing time stamp intervals for each video and the edit fuctionalities to be performed during that interval. You decide on which edits go where based on what is expected of you and the goal is to make the result as interesting, creative and as engaging as possible. Try as much as possible to identify the specified content type if mentioned and work towards delivering something creative in that area or get creative and come up wit what you believe is best. Some of this content type include comedy skits, dance trends, lip-syncing, tutorials, product demons, vlogs, reviews, etc. You will suggest how the videos are displayed and what to include or exclude so as to pass the information needed or make it as interesting and creative as possible.  
+
+
+  If for whatsoever reason you cannot produce a response or come up with video editing functionalities, generate a json response with empty values for all the videos'. Otherwise, the response should be in pure raw json given the structure above. The response should begin with a '{' and end with '}'. Make sure you don't exceed the maximum output tokens of 100000 and no matter what, provide a complet response.
   
   """)
     new_prompt = user_prompt + prompt
@@ -349,11 +448,10 @@ def prompt_gemini_api(video_file, gemini_prompt, video_durations):
       _id = edit['id']
       start_time = edit['start_time']
       end_time = edit['end_time']
-      edit_type = edit['edit']['type']
       effects = [return_effect(effect['name'], effect['adjustment']) for effect in edit['effects']]
-      text = edit['text']  # Assuming text is a list of dictionaries
-      transition = edit['transition']['type']
-      video_edits.append(return_video_edit(video_name, _id, start_time, end_time, edit_type, effects, text, transition))
+      text = [return_text(text['text'], text['font_size'], text['text_color'], text['background_color']) for text in edit['text']]
+      transition = edit['transition']
+      video_edits.append(return_video_edit(_id, video_name, start_time, end_time, effects, text, transition))
 
     return {
       'video_edits': video_edits
