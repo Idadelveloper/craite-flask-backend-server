@@ -159,8 +159,13 @@ def process_videos():
         sleep(60)
 
         # Prompt the Gemini API with all videos and the prompt
-        gemini_response = prompt_gemini_api(video_data[0], gemini_prompt, video_data[1])
-        print(gemini_response)
+        try:
+          gemini_response = prompt_gemini_api(video_data[0], gemini_prompt, video_data[1])
+          print("sleeping again... switch network")
+          sleep(60)
+          print(gemini_response)
+        except Exception as e:
+          print(f"Error calling Gemini API: {e}")
 
         # Return the response to the Android app
         return {'gemini_response': gemini_response}
@@ -565,7 +570,7 @@ def concatenate_videos(video_data, output_dir):
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0')
 
 
     
