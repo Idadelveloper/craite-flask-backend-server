@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 import firebase_admin
-from firebase_admin import credentials, storage, auth
+from firebase_admin import credentials, storage, auth, firestore
 from google.cloud import aiplatform
 import os
 import tempfile
@@ -109,6 +109,7 @@ def process_videos():
         user_id = data.get('user_id')
         gemini_prompt = data.get('gemini_prompt')
         project_id = data.get('project_id')
+        prompt_id = data.get('prompt_id')
 
         if not (project_id and user_id and gemini_prompt):
             return jsonify({'error': 'Missing required parameters'}), 400
@@ -164,19 +165,45 @@ def process_videos():
           print("sleeping again... switch network")
           sleep(60)
           print(gemini_response)
+
+            # Store Gemini response in Firestore
+          if prompt_id:
+            store_gemini_response(user_id, project_id, prompt_id, gemini_response)
+
+
+          # Return the response to the Android app
+          return {'gemini_response': gemini_response}
         except Exception as e:
           print(f"Error calling Gemini API: {e}")
 
-        # Return the response to the Android app
-        return {'gemini_response': gemini_response}
+        
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
+def return_empty_response():
+  effects = [return_effect("", "")]
+  text = [return_text("", "", "", "")]
+  return {
+    "video_edits": [return_video_edit("", "", "", "", effects, text, "")]
+  }
 
+def store_gemini_response(user_id, project_id, prompt_id, gemini_response):
+    """Stores the Gemini response in Firestore."""
+    try:
+      # Get firestore client
+      db = firestore.client()
 
+      # Assuming your Firestore structure is like: users/{userId}/projects/{projectId}/prompts/{promptId}
+      doc_ref = db.collection("users").document(user_id) \
+          .collection("projects").document(str(project_id)) \
+          .collection("prompts").document(prompt_id)
 
+      doc_ref.update({"geminiResponse": gemini_response})
+      print(f"Gemini response stored for prompt ID: {prompt_id}")
+    except Exception as e:
+        print(f"Error storing Gemini response: {e}")
 
 
 def return_video_edit(_id, video_name, start_time, end_time, effects, text, transition):
@@ -205,11 +232,6 @@ def return_text(text, font_size, text_color, background_color):
   }
 
 
-
-
-
-
-
 # Function to download a video from Firebase Storage
 def download_video(video_path, file_path):
     storage_client = storage
@@ -219,7 +241,7 @@ def download_video(video_path, file_path):
 
 # Function to prompt the Gemini API 
 def prompt_gemini_api(video_file, gemini_prompt, video_durations):
-    user_prompt = "You are a video editor. The given video could either be a single video or a sequence of concatenated videos. For the concatenated video, below are some key-value pairs of the video name alongside its start and end time (video_name: [start time, end time])\\n\"" + str(video_durations) + "\"\\nThis is what the user wants for their final video final video: \"" + gemini_prompt + "\"\\nEven though you have been provided a single video, using the above video names and timestamps, treat each as a single video and understand whats going on based on the sound, actions and interactions. The goal is for you to create a video not more than 60 seconds long.\n Make sure you identify each clip by looking at its video name above and check its corresponding timeframe based on its start and ending timestamp in the inputted video. After identifying a video, treat it as an independent video. Forexample if you identify a video from the 10th to the 15th second, treat that video as a independent 5 second video. All the videos you identify and isolate will be considered as the videoclips where you will carryout various edit functionalities on them"
+    user_prompt = "You are a video editor. Given a video (which might be a concatenation of multiple clips), \\n\"" + str(video_durations) + "\"\\nThis is what the user wants for their final video final video: \"" + gemini_prompt + "\"\\nEven though you have been provided a single video, using the above video names and timestamps, treat each as a single video and understand whats going on based on the sound, actions and interactions. The goal is for you to create a video not more than 60 seconds long.\n Make sure you identify each clip by looking at its video name above and check its corresponding timeframe based on its start and ending timestamp in the inputted video. After identifying a video, treat it as an independent video. Forexample if you identify a video from the 10th to the 15th second, treat that video as a independent 5 second video. All the videos you identify and isolate will be considered as the videoclips where you will carryout various edit functionalities on them"
 
     prompt = textwrap.dedent("""
     You are to create edit settings by understanding what is happening in each of the video clips you identified as stated above as well as what the user wants for the final video and suggest various edit functionalities in a purely json format. Even if the user did not specify did not specify how the video should look like or it isn't clear, make sure you can identify relevant parts or clips of the video that will match the audio and if how the video should look like was specified, make sure your suggestions matches it too. 
@@ -423,7 +445,7 @@ def prompt_gemini_api(video_file, gemini_prompt, video_durations):
 
 
     Important Notes:
-    - Multiple Edits on One Video: You noticed that video IDs 4 and 5 use the same video_name. This means we can take different chunks of the same original video and edit them separately!
+    - Multiple Edits on One Video: You noticed that video IDs 4 and 5 use the same video_name. This means we can take different chunks of the same video clip and edit them separately!
     - No Text Required: Some video edits might not have any text overlays, like video ID 5. That's totally fine!
     No Effects Required: Some videos might also not have any effects.
     - When suggesting the start_time and end_time for a video clip to be trimmed, remember to isolate that clip. If that clip happened to be between the 10th and the 15th second of the original clip, consider it a 0 to 5 seconds video and suggest edits on it like you will suggest on a 0 to 5 seconds video. For example for this clip we can condider to have start time at 1.00345 and end time at 4.55789 rather than at 11.00345 and 14.55789 respectfully. Know that in this video clip you are identifying interesting parts relevant to the final video you are trying to create so the start time must not be exactly at the 0th second neither must the end time necesarily be at the last second of the video clip. Try to be flexible.
@@ -439,6 +461,10 @@ def prompt_gemini_api(video_file, gemini_prompt, video_durations):
   """)
     new_prompt = user_prompt + prompt
     response = model.generate_content([video_file, new_prompt], tool_config={'function_calling_config':'ANY'})
+    if response.prompt_feedback:
+      print(response.prompt_feedback)
+
+
     print(response.text)
     res = response.text
     lines = res.splitlines(keepends=True)
