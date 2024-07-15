@@ -32,3 +32,11 @@ class GeminiResponse:
             'name': name,
             'adjustment': adjustment,
             }
+
+# TypeError: The view function for 'process_videos' did not return a valid response. The function either returned None or ended without a return statement.
+
+# TypeError: The view function for 'process_videos' did not return a valid response. The function either returned None or ended without a return statement.
+
+# block_reason: OTHER
+
+# Error calling Gemini API: Invalid operation: The `response.parts` quick accessor requires a single candidate, but none were returned. Please check the `response.prompt_feedback` to determine if the prompt was blocked.

@@ -6,6 +6,7 @@ import os
 import tempfile
 import requests  
 import google.generativeai as genai
+from google.generativeai.protos import HarmCategory, SafetySetting
 import concurrent.futures
 from time import sleep
 from dotenv import load_dotenv
@@ -30,11 +31,40 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 # Create the model
 generation_config = {
-  "temperature": 1,
+  "temperature": 0.7,
   "top_p": 0.95,
   "top_k": 64,
-  "max_output_tokens": 100000,
+  "max_output_tokens": 200000,
 }
+
+# Create saftey settings
+def create_safety_settings():
+  """
+  Creates a list of safety settings dictionaries to disable filtering for
+  specific categories.
+  """
+  safety_settings = []
+  categories = [
+      "HARM_CATEGORY_UNSPECIFIED",
+      "HARM_CATEGORY_DEROGATORY",
+      "HARM_CATEGORY_TOXICITY",
+      "HARM_CATEGORY_VIOLENCE",
+      "HARM_CATEGORY_SEXUAL",
+      "HARM_CATEGORY_MEDICAL",
+      "HARM_CATEGORY_DANGEROUS",
+      "HARM_CATEGORY_HARASSMENT",
+      "HARM_CATEGORY_HATE_SPEECH",
+      "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+      "HARM_CATEGORY_DANGEROUS_CONTENT"
+  ]
+  for category in categories:
+    safety_setting = {
+        "category": category,
+        "threshold": "BLOCK_NONE",
+    }
+    safety_settings.append(safety_setting)
+  return safety_settings
+  
 
 effect = genai.protos.Schema(
   type=genai.protos.Type.OBJECT,
@@ -153,6 +183,7 @@ def process_videos():
             gemini_video = upload_to_gemini(concatenated_video_path)
             video_data.append(gemini_video)
             video_data.append(video_durations)
+            video_data.append(total_duration)
 
         wait_for_file_active(video_data[0])
         print(f"final vid = {video_data[0]}")
@@ -161,7 +192,7 @@ def process_videos():
 
         # Prompt the Gemini API with all videos and the prompt
         try:
-          gemini_response = prompt_gemini_api(video_data[0], gemini_prompt, video_data[1])
+          gemini_response = prompt_gemini_api(video_data[0], gemini_prompt, video_data[1], video_data[2])
           print("sleeping again... switch network")
           sleep(60)
           print(gemini_response)
@@ -240,14 +271,40 @@ def download_video(video_path, file_path):
     blob.download_to_filename(file_path)
 
 # Function to prompt the Gemini API 
-def prompt_gemini_api(video_file, gemini_prompt, video_durations):
-    user_prompt = "You are a video editor. Given a video (which might be a concatenation of multiple clips), \\n\"" + str(video_durations) + "\"\\nThis is what the user wants for their final video final video: \"" + gemini_prompt + "\"\\nEven though you have been provided a single video, using the above video names and timestamps, treat each as a single video and understand whats going on based on the sound, actions and interactions. The goal is for you to create a video not more than 60 seconds long.\n Make sure you identify each clip by looking at its video name above and check its corresponding timeframe based on its start and ending timestamp in the inputted video. After identifying a video, treat it as an independent video. Forexample if you identify a video from the 10th to the 15th second, treat that video as a independent 5 second video. All the videos you identify and isolate will be considered as the videoclips where you will carryout various edit functionalities on them"
+def prompt_gemini_api(video_file, gemini_prompt, video_durations, total_duration):
+    user_prompt = "## Video Editing Instructions \n\n You are a skilled video editor tasked with creating edit settings for a video project. \n**User's Vision:** " + gemini_prompt + "\n\n**Video Information:**\n\nThe user has uploaded multiple videos that have been merged into a single video file. The total duration of this merged video is" + str(total_duration) + "seconds.\nTo help you identify individual clips within the merged video, here's a map of video names and their corresponding start and end times within the merged video:\n" + str(video_durations) + "\n\n"
 
-    prompt = textwrap.dedent("""
-    You are to create edit settings by understanding what is happening in each of the video clips you identified as stated above as well as what the user wants for the final video and suggest various edit functionalities in a purely json format. Even if the user did not specify did not specify how the video should look like or it isn't clear, make sure you can identify relevant parts or clips of the video that will match the audio and if how the video should look like was specified, make sure your suggestions matches it too. 
-    The goal is to capture and suggest the key moments and best parts of the video(s) while making sure they all sum up to at most the time limit. You are to suggest the text overlays, perform video editing like changes in brightness, contrast, saturation. Different edit functionalities can be performed on a single video clip at different time intervals and the videos must not appear in the order they came in. You decide how they appear based on the message you are trying to pass. You can trim a single video clip multiple times at different timestamps if possible. 
+    instructions = textwrap.dedent("""
+    **Instructions:**
 
-    Here is a sample of how the json response you must return should look like:
+    1. **Treat Each Clip Independently:**  Even though the videos are merged, consider each entry in the `video_durations` map as an independent video clip.
+
+    2. **Calculate Clip Duration:** For each clip, calculate its duration by subtracting the end time from the start time.  For example, for a clip `/tmp/tmprby5l8h6/video_9_1720995947623.mp4: [96.53999999999999, 101.13999999999999]`, the duration would be 101.13999999999999 - 96.53999999999999 = 4.6 seconds.
+
+    3. **Adjust Start and End Times:** When suggesting edit settings for a clip, assume its start time is 0 and its end time is the calculated duration.  So, for the example clip above, you would suggest edits within the time range of 0 to 4.6 seconds.
+
+    4. **Identify Key Moments:** Carefully analyze each video clip, considering its calculated duration. Identify the most interesting, relevant, and engaging segments that align with the user's vision. **A single video clip might have multiple key moments at different durations.**
+
+    5. **Suggest Multiple Edits per Clip (If Applicable):** Feel free to suggest multiple edit settings for the same video clip if it contains several interesting parts. Use unique `id` values to distinguish between these edits.
+
+    6. **Determine Sequence with `id`:** The `id` field (an integer) in each edit setting indicates the order in which the edited clips should appear in the final video. You decide the optimal sequence based on the user's vision and the narrative flow you want to create.
+
+    7. **Creative Sequencing:** Don't feel constrained to use the videos in the same order they were provided. Arrange the edited clips in a way that maximizes the impact and storytelling of the final video.
+
+    8. **Suggest Edit Settings:** For each key moment you identify, provide the following edit settings in JSON format:
+        - **`id`:** A unique integer ID for the edited clip, indicating its position in the final video sequence.
+        - **`video_name`:** The name of the original video file the clip is from.
+        - **`start_time`:** The start time of the clip *within the individual clip's timeline* (in seconds, starting from 0).
+        - **`end_time`:** The end time of the clip *within the individual clip's timeline* (in seconds).
+        - **`effects`:** A list of visual effects to apply (brightness, contrast, saturation). Specify the effect name and a numerical adjustment value between -1 and 1.
+        - **`text`:** A list of text overlays to add. Include the text content, font size, text color (hex code), and background color (hex code).
+        - **`transition`:** The type of transition to use between this clip and the next (e.g., "fade", "slide", "cross-fade").
+
+    9. **Optimize for Engagement:** Aim to create a final video that is no longer than 60 seconds. Prioritize the most captivating moments and use transitions effectively to maintain viewer interest.
+
+    10. **JSON Output:** Your response should be a single JSON object with a "video_edits" key containing a list of edit settings as described above. Ensure the JSON is well-formatted and valid.
+
+    **Example JSON Output:**
     "video_edits": [
               {
                   "id": 1,
@@ -398,95 +455,56 @@ def prompt_gemini_api(video_file, gemini_prompt, video_durations):
           ]
     }
 
-    Let's break down this JSON response and understand what each part of the video edit settings means:
-    Think of this JSON like a recipe for editing a bunch of videos and stitching them together. Each item in the video_edits list is like instructions for a single video clip.
-    Let's look at one of these video edit instructions:
+    **Important Considerations:**
 
-    {
-        "id": 1,
-        "video_name": "/tmp/tmpn45wu176/video_0_1718959816080.mp4",
-        "start_time": 0.734861348165432,
-        "end_time": 3.530177287369108,
-        "effects": [
-            {
-                "name": "brightness",
-                "adjustment": [0.3333637]
-            }
-        ],
-        "text": [
-            {
-                "text": "Having some coffee with my sister",
-                "font_size": 28,
-                "text_color": "#3de490",
-                "background_color": "#80000000"
-            }
-        ],
-        "transition": "fade"
-    }
+    - **Content Type:** If the user mentions a specific content type (e.g., comedy, dance, tutorial), tailor your edit suggestions to match that style.
+    - **Creativity:** If the user's vision is unclear, use your creativity to suggest edits that enhance the video's storytelling and visual appeal.
+    - **Time Limit:** Ensure the total duration of the edited clips does not exceed 60 seconds.
 
-    Here's what each part means:
-    - id: This is like a unique number tag for the trimmed version of this video clip. So, after we trim this video, we'll think of it as "video clip number 1". This is important for putting the clips in the right order later. It's always a whole number (an integer).
-    - video_name: This is the video name assigneed to that video clip. It's like saying, "Hey, go find this specific video to work with." Each video has a unique name, so we don't get them mixed up.
-    - start_time: This tells us where to start chopping the video, measured in seconds. It's a decimal number (a float) because we might want to start at a very precise moment, like 0.734 seconds in. The start_time MUST not begin at 0
-    - end_time: This tells us where to stop chopping the video, also in seconds and also a float for precision. So, for this clip, we're only using the part of the video between 0.734 seconds and 3.530 seconds. The end_time MUST not begin at the last second.
-
-
-    effects: This is a list of special visual tweaks we want to apply to the video clip. Think of it like adding filters on Instagram. Right now, we only have three options:
-    - **`brightness`:** This controls how bright or dark the clip looks.  The adjustment value is a number between -1 and 1.  Zero means no change, positive numbers make it brighter, and negative numbers make it darker.  In this example, 0.333 makes the clip a bit brighter.
-    - **`contrast`:** This controls the difference between the darkest and lightest parts of the clip.  Again, the adjustment is between -1 and 1.  Zero means no change, positive numbers increase the contrast (making darks darker and lights lighter), and negative numbers decrease the contrast (making everything look more similar in brightness).
-    - **`saturation`:** This controls how vivid the colors in the clip are.  Zero means black and white, 1 means normal colors, and numbers above 1 make the colors super intense.
-    text: This is a list of text overlays we want to put on top of the video. Each text overlay has:
-    - **`text`:** The actual words to display.
-    - **`font_size`:** How big the text should be in pixels for a mobile device
-    - **`text_color`:** The color of the text, written as a hex code (like #3de490 for a greenish color).
-    - **`background_color`:** The color behind the text, also a hex code.  "#80000000" means a semi-transparent black, so the video can still be seen a bit behind the text.
-
-    transition: This tells us how to smoothly blend this clip with the next one in the sequence. "fade" means the clip will slowly fade out as the next one fades in. There are other options like "slide" or "cross-fade". If it's empty (like in the second video edit), there's no special transition.
-
-
-    Important Notes:
-    - Multiple Edits on One Video: You noticed that video IDs 4 and 5 use the same video_name. This means we can take different chunks of the same video clip and edit them separately!
-    - No Text Required: Some video edits might not have any text overlays, like video ID 5. That's totally fine!
-    No Effects Required: Some videos might also not have any effects.
-    - When suggesting the start_time and end_time for a video clip to be trimmed, remember to isolate that clip. If that clip happened to be between the 10th and the 15th second of the original clip, consider it a 0 to 5 seconds video and suggest edits on it like you will suggest on a 0 to 5 seconds video. For example for this clip we can condider to have start time at 1.00345 and end time at 4.55789 rather than at 11.00345 and 14.55789 respectfully. Know that in this video clip you are identifying interesting parts relevant to the final video you are trying to create so the start time must not be exactly at the 0th second neither must the end time necesarily be at the last second of the video clip. Try to be flexible.
-    - The IDs are integers that dictate the sequence in which the new video clips must appear in the final video
-    - when proposing the edit settings sum up the different timeframes making sure it doesn't exceed the duration limit above.
-
-
-  You are to carry out this by proposing time stamp intervals for each video and the edit fuctionalities to be performed during that interval. You decide on which edits go where based on what is expected of you and the goal is to make the result as interesting, creative and as engaging as possible. Try as much as possible to identify the specified content type if mentioned and work towards delivering something creative in that area or get creative and come up wit what you believe is best. Some of this content type include comedy skits, dance trends, lip-syncing, tutorials, product demons, vlogs, reviews, etc. You will suggest how the videos are displayed and what to include or exclude so as to pass the information needed or make it as interesting and creative as possible.  
-
-
-  If for whatsoever reason you cannot produce a response or come up with video editing functionalities, generate a json response with empty values for all the videos'. Otherwise, the response should be in pure raw json given the structure above. The response should begin with a '{' and end with '}'. Make sure you don't exceed the maximum output tokens of 100000 and no matter what, provide a complet response.
+    **If you cannot generate a valid JSON response, return an empty JSON object with the "video_edits" key.**
   
   """)
-    new_prompt = user_prompt + prompt
-    response = model.generate_content([video_file, new_prompt], tool_config={'function_calling_config':'ANY'})
-    if response.prompt_feedback:
+    new_prompt = user_prompt + instructions
+    try:
+      response = model.generate_content(
+        [video_file, new_prompt], 
+        tool_config={'function_calling_config':'ANY'},
+        # safety_settings=create_safety_settings()
+        )
       print(response.prompt_feedback)
+      if response.parts:  # Check if candidates exist
+        print(response.parts)
+        print("---------------------------")
+        print(response.text)
+        res = response.text
+        lines = res.splitlines(keepends=True)
+        res = ''.join(lines[1:-1])
+        gemini_response_json = json.loads(res)
+        print(json.dumps(gemini_response_json, indent=4))
 
+        # Process Gemini response and create video edits using function calls
+        video_edits = []
+        for edit in gemini_response_json['video_edits']:
+          video_name = edit['video_name']
+          _id = edit['id']
+          start_time = edit['start_time']
+          end_time = edit['end_time']
+          effects = [return_effect(effect['name'], effect['adjustment']) for effect in edit['effects']]
+          text = [return_text(text['text'], text['font_size'], text['text_color'], text['background_color']) for text in edit['text']]
+          transition = edit['transition']
+          video_edits.append(return_video_edit(_id, video_name, start_time, end_time, effects, text, transition))
 
-    print(response.text)
-    res = response.text
-    lines = res.splitlines(keepends=True)
-    res = ''.join(lines[1:-1])
-    gemini_response_json = json.loads(res)
-    print(json.dumps(gemini_response_json, indent=4))
+        return {
+          'video_edits': video_edits
+        }
+      else:
+          print("Error: No candidates returned. Prompt feedback:", response.prompt_feedback)
 
-    # Process Gemini response and create video edits using function calls
-    video_edits = []
-    for edit in gemini_response_json['video_edits']:
-      video_name = edit['video_name']
-      _id = edit['id']
-      start_time = edit['start_time']
-      end_time = edit['end_time']
-      effects = [return_effect(effect['name'], effect['adjustment']) for effect in edit['effects']]
-      text = [return_text(text['text'], text['font_size'], text['text_color'], text['background_color']) for text in edit['text']]
-      transition = edit['transition']
-      video_edits.append(return_video_edit(_id, video_name, start_time, end_time, effects, text, transition))
-
-    return {
-      'video_edits': video_edits
-    }
+      
+    except TypeError as e:
+      print(e)
+    
+    return response.prompt_feedback
 
 def upload_to_gemini(path, mime_type=None):
   """Uploads the given file to Gemini.
