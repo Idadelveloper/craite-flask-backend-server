@@ -14,6 +14,7 @@ from moviepy.editor import VideoFileClip, concatenate_videoclips
 import uuid
 import textwrap
 import json
+import ffmpeg
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -465,7 +466,7 @@ def prompt_gemini_api(video_file, gemini_prompt, video_durations):
     effects: This is a list of special visual tweaks we want to apply to the video clip. Think of it like adding filters on Instagram. Right now, we only have three options:
     - **`brightness`:** This controls how bright or dark the clip looks.  The adjustment value is a number between -1 and 1.  Zero means no change, positive numbers make it brighter, and negative numbers make it darker.  In this example, 0.333 makes the clip a bit brighter.
     - **`contrast`:** This controls the difference between the darkest and lightest parts of the clip.  Again, the adjustment is between -1 and 1.  Zero means no change, positive numbers increase the contrast (making darks darker and lights lighter), and negative numbers decrease the contrast (making everything look more similar in brightness).
-    - **`saturation`:** This controls how vivid the colors in the clip are.  Zero means black and white, 1 means normal colors, and numbers above 1 make the colors super intense.
+    - **`saturation`:** This controls how vivid the colors in the clip are.  0 is the neutral point and the color stays thesame. Positive numbers like like 0.5, 1, 2, etc will make the colors in the video more intense and vibrant. The higher the number, the more saturated and punchy the colors become. Negative numbers like like -0.5, -1, etc will make the colors more muted and washed out. The further negative you go, the closer you get to a black and white look.
     text: This is a list of text overlays we want to put on top of the video. Each text overlay has:
     - **`text`:** The actual words to display.
     - **`font_size`:** How big the text should be in pixels for a mobile device
@@ -622,6 +623,7 @@ def concatenate_videos(video_data, output_dir):
   final_clip = concatenate_videoclips(clips)
   final_clip.write_videofile(output_clip_path)
   print(f"Concatenated videos saved to: {output_clip_path}")
+  print(final_clip.size)
 
   return output_clip_path, durations, total_duration
 
