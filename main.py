@@ -467,6 +467,16 @@ def prompt_gemini_api(video_file, gemini_prompt, video_durations):
     - **`brightness`:** This controls how bright or dark the clip looks.  The adjustment value is a number between -1 and 1.  Zero means no change, positive numbers make it brighter, and negative numbers make it darker.  In this example, 0.333 makes the clip a bit brighter.
     - **`contrast`:** This controls the difference between the darkest and lightest parts of the clip.  Again, the adjustment is between -1 and 1.  Zero means no change, positive numbers increase the contrast (making darks darker and lights lighter), and negative numbers decrease the contrast (making everything look more similar in brightness).
     - **`saturation`:** This controls how vivid the colors in the clip are.  0 is the neutral point and the color stays thesame. Positive numbers like like 0.5, 1, 2, etc will make the colors in the video more intense and vibrant. The higher the number, the more saturated and punchy the colors become. Negative numbers like like -0.5, -1, etc will make the colors more muted and washed out. The further negative you go, the closer you get to a black and white look.
+    - **`vignette`**: This effect creates a soft, darkened border around the edges of the video, drawing attention to the center. The strength of the effect is controlled by two values between 0 and 1: outerRadius (how far the darkening extends) and innerRadius (the size of the unaffected center area). It should be a list of 2 float values like this: [outerRadius, innerRadius]
+    - **`fisheye`**: This effect distorts the video to create a wide-angle, rounded look, similar to a fisheye lens. The strength of the distortion is controlled by a value between 0 (no distortion) and 1 (maximum distortion). The adjustment value should be a single float in a list.
+    - **`colorTint`**: This effect applies a tint of a specific color over the entire video. The color is specified using a hex color code (e.g., "#FF0000" for red, "#0000FF" for blue).
+    - **`rotate`**: This effect rotates the video by a specified number of degrees (e.g., 90 degrees).
+    - **`zoomIn`**: It takes a list containing 2 values, [zoomFactor, durationSeconds]. This effect gradually zooms into the video over a specified duration.
+       -zoomFactor (Float): How much to zoom in. A value of 2.0 means zooming in to twice the original size.
+      durationSeconds (Float): How long the zoom-in effect should last, in seconds.
+    - **`zoomOut`**: This effect gradually zooms out of the video over a specified duration.
+      - zoomFactor (Float): How much to zoom out. A value of 0.5 means zooming out to half the original size.
+      - durationSeconds (Float): How long the zoom-out effect should last, in seconds.
     text: This is a list of text overlays we want to put on top of the video. Each text overlay has:
     - **`text`:** The actual words to display.
     - **`font_size`:** How big the text should be in pixels for a mobile device
@@ -483,6 +493,7 @@ def prompt_gemini_api(video_file, gemini_prompt, video_durations):
     - When suggesting the start_time and end_time for a video clip to be trimmed, remember to isolate that clip. If that clip happened to be between the 10th and the 15th second of the original clip, consider it a 0 to 5 seconds video and suggest edits on it like you will suggest on a 0 to 5 seconds video. For example for this clip we can condider to have start time at 1.00345 and end time at 4.55789 rather than at 11.00345 and 14.55789 respectfully. Know that in this video clip you are identifying interesting parts relevant to the final video you are trying to create so the start time must not be exactly at the 0th second neither must the end time necesarily be at the last second of the video clip. Try to be flexible.
     - The IDs are integers that dictate the sequence in which the new video clips must appear in the final video
     - when proposing the edit settings sum up the different timeframes making sure it doesn't exceed the duration limit above.
+    - A video edit can contain more than one effect and the adjustment value of all effectsshould be in a list.
 
 
   You are to carry out this by proposing time stamp intervals for each video and the edit fuctionalities to be performed during that interval. You decide on which edits go where based on what is expected of you and the goal is to make the result as interesting, creative and as engaging as possible. Try as much as possible to identify the specified content type if mentioned and work towards delivering something creative in that area or get creative and come up wit what you believe is best. Some of this content type include comedy skits, dance trends, lip-syncing, tutorials, product demons, vlogs, reviews, etc. You will suggest how the videos are displayed and what to include or exclude so as to pass the information needed or make it as interesting and creative as possible.  
