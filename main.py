@@ -150,6 +150,12 @@ def process_videos():
             user = auth.get_user(user_id)
         except auth.UserNotFoundError:
             return jsonify({'error': 'Invalid user ID'}), 401
+          
+        # Download audio if any and prepare for the Gemini API
+        audio_directory = f"users/{user_id}/projects/{project_id}/audios"
+        audio_paths = get_all_file_paths(audio_directory)
+        downloaded_audio_paths = dict()
+        
 
         # Download videos and prepare data for Gemini API
         video_directory = f"users/{user_id}/projects/{project_id}/videos"
@@ -179,15 +185,26 @@ def process_videos():
             print(concatenated_video_path)
             print(video_durations)
             print(total_duration)
+            
+            audio_path = audio_paths[-1]
 
-            # upload concatenated video to Gemini
+            # upload concatenated video and audio to Gemini
             gemini_video = upload_to_gemini(concatenated_video_path)
+            gemini_audio = upload_to_gemini(audio_path)
+            
+            
             video_data.append(gemini_video)
             video_data.append(video_durations)
             video_data.append(total_duration)
+            video_data.append(gemini_audio)
 
         wait_for_file_active(video_data[0])
         print(f"final vid = {video_data[0]}")
+        
+        wait_for_file_active(video_data[3])
+        print(f"final vid = {video_data[3]}")
+        
+        
         print("sleeping now... switch network")
         sleep(60)
 
@@ -278,6 +295,8 @@ def prompt_gemini_api(video_file, gemini_prompt, video_durations):
     prompt = textwrap.dedent("""
     You are to create edit settings by understanding what is happening in each of the video clips you identified as stated above as well as what the user wants for the final video and suggest various edit functionalities in a purely json format. Even if the user did not specify did not specify how the video should look like or it isn't clear, make sure you can identify relevant parts or clips of the video that will match the audio and if how the video should look like was specified, make sure your suggestions matches it too. 
     The goal is to capture and suggest the key moments and best parts of the video(s) while making sure they all sum up to at most the time limit. You are to suggest the text overlays, perform video editing like changes in brightness, contrast, saturation. Different edit functionalities can be performed on a single video clip at different time intervals and the videos must not appear in the order they came in. You decide how they appear based on the message you are trying to pass. You can trim a single video clip multiple times at different timestamps if possible. 
+    
+    If an audio has been provided, you are  also to suggest some edits on it. For the audio edits, you are simply to trim it in such a way that it matches or syncs with the final video. Make sure you calculate the start and end time of the audio to match the length of the resulting video after the video edits have been applied.
 
     Here is a sample of how the json response you must return should look like:
     "video_edits": [
@@ -371,6 +390,10 @@ def prompt_gemini_api(video_file, gemini_prompt, video_durations):
                       {
                           "name": "saturation",
                           "adjustment": [0.506017]
+                      },
+                      {
+                          "name": "rotate",
+                          "adjustment": 90
                       }
                   ],
                   "text": [],
@@ -413,6 +436,14 @@ def prompt_gemini_api(video_file, gemini_prompt, video_durations):
                       {
                           "name": "saturation",
                           "adjustment": [1.0755221]
+                      },
+                      {
+                          "name": "vignette",
+                          "adjustment": [0.5, 0.5]
+                      },
+                      {
+                          "name": "zoomIn",
+                          "adjustment": [2.0, 1L]
                       }
                   ],
                   "text": [
@@ -427,7 +458,11 @@ def prompt_gemini_api(video_file, gemini_prompt, video_durations):
                   "transition": "fade"
                   
               }
-          ]
+          ],
+          "audio_edits": {
+            "start_time": 0.004576,
+            "end_time": 6.98762344
+        }
     }
 
     Let's break down this JSON response and understand what each part of the video edit settings means:
@@ -470,13 +505,13 @@ def prompt_gemini_api(video_file, gemini_prompt, video_durations):
     - **`vignette`**: This effect creates a soft, darkened border around the edges of the video, drawing attention to the center. The strength of the effect is controlled by two values between 0 and 1: outerRadius (how far the darkening extends) and innerRadius (the size of the unaffected center area). It should be a list of 2 float values like this: [outerRadius, innerRadius]
     - **`fisheye`**: This effect distorts the video to create a wide-angle, rounded look, similar to a fisheye lens. The strength of the distortion is controlled by a value between 0 (no distortion) and 1 (maximum distortion). The adjustment value should be a single float in a list.
     - **`colorTint`**: This effect applies a tint of a specific color over the entire video. The color is specified using a hex color code (e.g., "#FF0000" for red, "#0000FF" for blue).
-    - **`rotate`**: This effect rotates the video by a specified number of degrees (e.g., 90 degrees).
+    - **`rotate`**: This effect rotates the video by a specified number of degrees (e.g., 90 degrees). This will be a list containing and integer value specifying the number of degrees.
     - **`zoomIn`**: It takes a list containing 2 values, [zoomFactor, durationSeconds]. This effect gradually zooms into the video over a specified duration.
-       -zoomFactor (Float): How much to zoom in. A value of 2.0 means zooming in to twice the original size.
-      durationSeconds (Float): How long the zoom-in effect should last, in seconds.
+        -zoomFactor (Float): How much to zoom in. A value of 2.0 means zooming in to twice the original size.
+        -durationSeconds (Long): How long the zoom-in effect should last, in seconds.
     - **`zoomOut`**: This effect gradually zooms out of the video over a specified duration.
-      - zoomFactor (Float): How much to zoom out. A value of 0.5 means zooming out to half the original size.
-      - durationSeconds (Float): How long the zoom-out effect should last, in seconds.
+        - zoomFactor (Float): How much to zoom out. A value of 0.5 means zooming out to half the original size.
+        - durationSeconds (Long): How long the zoom-out effect should last, in seconds.
     text: This is a list of text overlays we want to put on top of the video. Each text overlay has:
     - **`text`:** The actual words to display.
     - **`font_size`:** How big the text should be in pixels for a mobile device
@@ -484,6 +519,15 @@ def prompt_gemini_api(video_file, gemini_prompt, video_durations):
     - **`background_color`:** The color behind the text, also a hex code.  "#80000000" means a semi-transparent black, so the video can still be seen a bit behind the text.
 
     transition: This tells us how to smoothly blend this clip with the next one in the sequence. "fade" means the clip will slowly fade out as the next one fades in. There are other options like "slide" or "cross-fade". If it's empty (like in the second video edit), there's no special transition.
+    
+    
+    Let's look at the audio edits:
+    "audio_edits": {
+            "start_time": 0.004576,
+            "end_time": 6.98762344
+        }
+    The `start_time` signfies the time where the trimming of the audio will start while the `end_time` signifies the time where the trimming of the audio will end.
+    
 
 
     Important Notes:
@@ -493,7 +537,7 @@ def prompt_gemini_api(video_file, gemini_prompt, video_durations):
     - When suggesting the start_time and end_time for a video clip to be trimmed, remember to isolate that clip. If that clip happened to be between the 10th and the 15th second of the original clip, consider it a 0 to 5 seconds video and suggest edits on it like you will suggest on a 0 to 5 seconds video. For example for this clip we can condider to have start time at 1.00345 and end time at 4.55789 rather than at 11.00345 and 14.55789 respectfully. Know that in this video clip you are identifying interesting parts relevant to the final video you are trying to create so the start time must not be exactly at the 0th second neither must the end time necesarily be at the last second of the video clip. Try to be flexible.
     - The IDs are integers that dictate the sequence in which the new video clips must appear in the final video
     - when proposing the edit settings sum up the different timeframes making sure it doesn't exceed the duration limit above.
-    - A video edit can contain more than one effect and the adjustment value of all effectsshould be in a list.
+    - All the effects must not be used. The point of the effects is to modify the video or make it more interesting
 
 
   You are to carry out this by proposing time stamp intervals for each video and the edit fuctionalities to be performed during that interval. You decide on which edits go where based on what is expected of you and the goal is to make the result as interesting, creative and as engaging as possible. Try as much as possible to identify the specified content type if mentioned and work towards delivering something creative in that area or get creative and come up wit what you believe is best. Some of this content type include comedy skits, dance trends, lip-syncing, tutorials, product demons, vlogs, reviews, etc. You will suggest how the videos are displayed and what to include or exclude so as to pass the information needed or make it as interesting and creative as possible.  
@@ -638,6 +682,14 @@ def concatenate_videos(video_data, output_dir):
 
   return output_clip_path, durations, total_duration
 
+
+def download_audio(audio_path, file_path):
+    storage_client = storage
+    bucket = storage_client.bucket('craiteapp.appspot.com')
+    blob = bucket.blob(audio_path)
+    blob.download_to_filename(file_path)
+    
+    
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
