@@ -15,6 +15,7 @@ import uuid
 import textwrap
 import json
 import ffmpeg
+import traceback
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -227,6 +228,8 @@ def process_videos():
         
 
     except Exception as e:
+        print(f"Error processing videos: {e}")
+        traceback.print_exc()  # Print the full traceback
         return jsonify({'error': str(e)}), 500
 
 
