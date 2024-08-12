@@ -1,5 +1,5 @@
 # craite-flask-backend-server
-Backend server for the craite android app to handle Gemini API requests
+Backend server for the craite android app to handle Gemini API requests. It returns edit settings needed by the [craite android app](https://github.com/Idadelveloper/craite)
 
 
 ## Building and Running the Flask backend Server
@@ -52,5 +52,41 @@ val baseUrl = "your_backend_server_base_url_here"
 ```
 
 
-## Contributors
-- Ida Delphine
+# API Reference for Craite Backend Server
+This API reference provides details on the endpoints available in the Craite Flask backend server, which facilitates video processing and interaction with the Gemini API
+
+### Base URL
+The base URL for all API endpoints is:
+```bash
+http://your-backend-server-address:5000/
+```
+Replace your-backend-server-address with the actual address or domain name of your deployed Flask server.
+
+### Endpoints
+**POST /process_videos**
+This endpoint initiates the video processing workflow. It receives a JSON payload containing user information, prompt, and project details.
+#### Request Body (JSON):**
+```json
+{
+  "user_id": "firebase_user_id",
+  "gemini_prompt": "Your descriptive prompt for video editing",
+  "project_id": 123,
+  "prompt_id": "firebase_prompt_id"
+}
+```
+#### Response (JSON):
+- **Success (200 OK):** Returns a JSON object containing the Gemini response with edit settings.
+- **Error (400 Bad Request):** Indicates missing or invalid parameters in the request.
+- **Error (401 Unauthorized):** Indicates an invalid user ID.
+- **Error (403 Forbidden):** Indicates unauthorized access to a video.
+- **Error (500 Internal Server Error):** Indicates an unexpected error during processing.
+
+#### Example Request (using cURL):
+```bash
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"user_id": "your_user_id", "gemini_prompt": "Edit the video to highlight the key moments", "project_id": 123, "prompt_id": "your_prompt_id"}' \
+  http://your-backend-server-address:5000/process_videos
+```
+
+##### Notes:
+- This API reference provides a basic overview. Refer to the code for detailed implementation and error handling.

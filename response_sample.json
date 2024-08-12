@@ -2,78 +2,155 @@
     "gemini_response": {
         "video_edits": [
             {
-                "edit": "trim",
-                "effects": [],
-                "end_time": 2.0,
                 "id": 1,
-                "start_time": 0.0,
-                "text": [],
-                "transition": "cut",
-                "video_name": "/tmp/tmpn45wu176/video_0_1718959816080.mp4"
-            },
-            {
-                "edit": "trim",
+                "video_name": "/tmp/tmpn45wu176/video_0_1718959816080.mp4",
+                "start_time": 0.734861348165432,
+                "end_time": 3.530177287369108,
                 "effects": [
                     {
-                        "adjustment": 1.2,
-                        "name": "speed"
+                        "name": "brightness",
+                        "adjustment": [0.3333637]
                     }
                 ],
-                "end_time": 5.0,
-                "id": 2,
-                "start_time": 0.0,
                 "text": [
                     {
-                        "color": "white",
-                        "duration": 3,
-                        "font_size": 20,
-                        "label": "Graduation Day!",
-                        "position": "top-center"
+                        "text": "Having some coffee with my sister",
+                        "font_size": 28,
+                        "text_color": "#3de490",
+                        "background_color": "#80000000"
                     }
+                    
                 ],
-                "transition": "cut",
-                "video_name": "/tmp/tmpn45wu176/video_1_1718959816136.mp4"
+                "transition": "fade"
+                
             },
             {
-                "edit": "trim",
+                "id": 2,
+                "video_name": "/tmp/tmpn45wu176/video_1_1718959816136.mp4",
+                "start_time": 0.401773244161053,
+                "end_time": 2.8618605101782535,
                 "effects": [
                     {
-                        "adjustment": 0.5,
-                        "name": "speed"
+                        "name": "brightness",
+                        "adjustment": [-0.46320993]
+                    },
+                    {
+                        "name": "contrast",
+                        "adjustment": [0.3143587]
+                    },
+                    {
+                        "name": "saturation",
+                        "adjustment": [1.4236718]
                     }
                 ],
-                "end_time": 1.0,
+                "text": [
+                    {
+                        "text": "The coffee tasted delicious",
+                        "font_size": 26,
+                        "text_color": "#223a18",
+                        "background_color": "#80000000"
+                    }
+                    
+                ],
+                "transition": ""
+                
+            },
+            {
                 "id": 3,
-                "start_time": 0.0,
-                "text": [],
-                "transition": "cut",
-                "video_name": "/tmp/tmpn45wu176/video_2_1718959816170.mp4"
-            },
-            {
-                "edit": "trim",
-                "effects": [],
-                "end_time": 4.0,
-                "id": 4,
-                "start_time": 0.0,
-                "text": [],
-                "transition": "dissolve",
-                "video_name": "/tmp/tmpn45wu176/video_3_1718959816192.mp4"
-            },
-            {
-                "edit": "trim",
+                "video_name": "/tmp/tmpn45wu176/video_3_1718959816192.mp4",
+                "start_time": 3.49878691889803517,
+                "end_time": 6.981376295379518,
                 "effects": [
                     {
-                        "adjustment": 0.2,
-                        "name": "brightness"
+                        "name": "brightness",
+                        "adjustment": [-0.46320993]
+                    },
+                    {
+                        "name": "saturation",
+                        "adjustment": [1.3028498]
                     }
                 ],
-                "end_time": 2.0,
-                "id": 5,
-                "start_time": 0.0,
+                "text": [
+                    {
+                        "text": "Guess who walked in? My brother",
+                        "font_size": 26,
+                        "text_color": "#171f34",
+                        "background_color": "#80000000"
+                    }
+                    
+                ],
+                "transition": "fade"
+                
+            },
+            {
+                "id": 4,
+                "video_name": "/tmp/tmpn45wu176/video_4_1718959816213.mp4",
+                "start_time": 0.665023107211262,
+                "end_time": 2.9066618703894362,
+                "effects": [
+                    {
+                        "name": "saturation",
+                        "adjustment": [0.506017]
+                    }
+                ],
                 "text": [],
-                "transition": "cut",
-                "video_name": "/tmp/tmpn45wu176/video_4_1718959816213.mp4"
+                "transition": "slide"
+                
+            },
+            {
+                "id": 5,
+                "video_name": "/tmp/tmpn45wu176/video_4_1718959816213.mp4",
+                "start_time": 4.268023107211265,
+                "end_time": 8.5066638703894361,
+                "effects": [
+                    {
+                        "name": "brightness",
+                        "adjustment": [0.032896698]
+                    },
+                    {
+                        "name": "contrast",
+                        "adjustment": [0.018022478]
+                    }
+                ],
+                "text": [],
+                "transition": "cross-fade"
+                
+            },
+            {
+                "id": 6,
+                "video_name": "/tmp/tmpn45wu176/video_5_1718959816192.mp4",
+                "start_time": 0.8979263059372027,
+                "end_time": 3.355789246300705,
+                "effects": [
+                    {
+                        "name": "brightness",
+                        "adjustment": [-0.40000975]
+                    },
+                    {
+                        "name": "contrast",
+                        "adjustment": [0.8433415]
+                    },
+                    {
+                        "name": "saturation",
+                        "adjustment": [1.0755221]
+                    }
+                ],
+                "text": [
+                    {
+                        "text": "We all had such a great time",
+                        "font_size": 22,
+                        "text_color": "#f97b5d",
+                        "background_color": "#80000000"
+                    }
+                    
+                ],
+                "transition": "fade"
+                
             }
-        ]
+        ],
+        "audio_edits": {
+            "start_time": 0.004576,
+            "end_time": 6.98762344
+        }
     }
 }

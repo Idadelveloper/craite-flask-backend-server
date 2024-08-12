@@ -40,3 +40,4 @@ class GeminiResponse:
 # block_reason: OTHER
 
 # Error calling Gemini API: Invalid operation: The `response.parts` quick accessor requires a single candidate, but none were returned. Please check the `response.prompt_feedback` to determine if the prompt was blocked.
+
