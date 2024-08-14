@@ -180,9 +180,11 @@ def process_videos():
                 # Uploads video to Gemini
                 # gemini_video = upload_to_gemini(file_path)
                 # video_data.append(gemini_video)
-            file_name = audio_paths[-1].split('/')[-1]
-            audio_file_path = os.path.join(temp_dir, file_name)
-            download_audio(audio_paths[-1], audio_file_path)
+            file_name, audio_file_path = False
+            if len(audio_paths) > 0:
+              file_name = audio_paths[-1].split('/')[-1]
+              audio_file_path = os.path.join(temp_dir, file_name)
+              download_audio(audio_paths[-1], audio_file_path)
 
             # Concatenate video
             concatenated_video_path, video_durations, total_duration = concatenate_videos(downloaded_video_paths, temp_dir)
@@ -194,7 +196,10 @@ def process_videos():
 
             # upload concatenated video and audio to Gemini
             gemini_video = upload_to_gemini(concatenated_video_path)
-            gemini_audio = upload_to_gemini(audio_file_path)
+            if audio_file_path:
+              gemini_audio = upload_to_gemini(audio_file_path)
+            else:
+              gemini_audio = None
             
             
             video_data.append(gemini_video)
@@ -205,8 +210,9 @@ def process_videos():
         wait_for_file_active(video_data[0])
         print(f"final vid = {video_data[0]}")
         
-        wait_for_file_active(video_data[3])
-        print(f"final vid = {video_data[3]}")
+        if video_data[3]:
+          wait_for_file_active(video_data[3])
+          print(f"final vid = {video_data[3]}")
         
         
 
