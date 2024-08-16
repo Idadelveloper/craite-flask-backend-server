@@ -25,7 +25,7 @@ firebase_admin.initialize_app(cred, {
 
 class Firebase:
     def __init__(self, storageBucket, creds):
-        firebase_admin.initialize_app(cred, {
+        firebase_admin.initialize_app(creds, {
             'storageBucket': 'craiteapp.appspot.com'
         })
         
