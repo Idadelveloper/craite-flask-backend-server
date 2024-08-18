@@ -19,7 +19,23 @@ import traceback
 
 
 class Gemini:
+    
+    @staticmethod
+    def upload_to_gemini(path, mime_type=None):
+            """Uploads the given file to Gemini.
+
+            See https://ai.google.dev/gemini-api/docs/prompting_with_media
+            """
+            if not os.path.exists(path):
+                raise Exception(f"File not found: {path}")
+
+            file = genai.upload_file(path, mime_type=mime_type)
+            print(f"Uploaded file '{file.display_name}' as: {file.uri}")
+            return file
+        
+        
     # Function to prompt the Gemini API 
+    @staticmethod
     def prompt_gemini_api(video_file, gemini_prompt, video_durations, audio_file):
         user_prompt = "You are a video editor. Given a video (which might be a concatenation of multiple clips), \\n\"" + str(video_durations) + "\"\\nThis is what the user wants for their final video final video: \"" + gemini_prompt + "\"\\nEven though you have been provided a single video, using the above video names and timestamps, treat each as a single video and understand whats going on based on the sound, actions and interactions. The goal is for you to create a video not more than 60 seconds long.\n Make sure you identify each clip by looking at its video name above and check its corresponding timeframe based on its start and ending timestamp in the inputted video. After identifying a video, treat it as an independent video. Forexample if you identify a video from the 10th to the 15th second, treat that video as a independent 5 second video. All the videos you identify and isolate will be considered as the videoclips where you will carryout various edit functionalities on them"
 
@@ -391,4 +407,6 @@ class Gemini:
             }
         except Exception as e:
             print(e)
+            
+        
         

@@ -24,12 +24,9 @@ firebase_admin.initialize_app(cred, {
 })
 
 class Firebase:
-    def __init__(self, storageBucket, creds):
-        firebase_admin.initialize_app(creds, {
-            'storageBucket': 'craiteapp.appspot.com'
-        })
         
     # Function to get all files in a Firebase cloud storage dir
+    @staticmethod
     def get_all_file_paths(self, directory):
         bucket = storage.bucket()
         blobs = bucket.list_blobs(prefix=directory)
@@ -37,6 +34,7 @@ class Firebase:
         return [blob.name for blob in blobs if not blob.name.endswith('/')]
     
     # Function to download a video from Firebase Storage
+    @staticmethod
     def download_media(video_path, file_path):
         storage_client = storage
         bucket = storage_client.bucket('craiteapp.appspot.com')
@@ -44,6 +42,7 @@ class Firebase:
         blob.download_to_filename(file_path)
      
      # Function to store gemini response to firestore   
+    @staticmethod
     def store_gemini_response(user_id, project_id, prompt_id, gemini_response):
         """Stores the Gemini response in Firestore."""
         try:
