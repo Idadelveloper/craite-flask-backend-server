@@ -5,11 +5,11 @@ def return_empty_response():
     "video_edits": [return_video_edit("", "", "", "", effects, text, "")]
   }
 
-def store_gemini_response(user_id, project_id, prompt_id, gemini_response):
+def store_gemini_response(user_id, project_id, prompt_id, gemini_response, firestore_client):
     """Stores the Gemini response in Firestore."""
     try:
       # Get firestore client
-      db = firestore.client()
+      db = firestore_client
 
       # Assuming your Firestore structure is like: users/{userId}/projects/{projectId}/prompts/{promptId}
       doc_ref = db.collection("users").document(user_id) \

@@ -16,6 +16,8 @@ import textwrap
 import json
 import ffmpeg
 import traceback
+from firebase import Firebase
+from gemini import Gemini
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -39,96 +41,10 @@ generation_config = {
   "max_output_tokens": 200000,
 }
 
-# Create saftey settings
-def create_safety_settings():
-  """
-  Creates a list of safety settings dictionaries to disable filtering for
-  specific categories.
-  """
-  safety_settings = []
-  categories = [
-      "HARM_CATEGORY_UNSPECIFIED",
-      "HARM_CATEGORY_DEROGATORY",
-      "HARM_CATEGORY_TOXICITY",
-      "HARM_CATEGORY_VIOLENCE",
-      "HARM_CATEGORY_SEXUAL",
-      "HARM_CATEGORY_MEDICAL",
-      "HARM_CATEGORY_DANGEROUS",
-      "HARM_CATEGORY_HARASSMENT",
-      "HARM_CATEGORY_HATE_SPEECH",
-      "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-      "HARM_CATEGORY_DANGEROUS_CONTENT"
-  ]
-  for category in categories:
-    safety_setting = {
-        "category": category,
-        "threshold": "BLOCK_NONE",
-    }
-    safety_settings.append(safety_setting)
-  return safety_settings
-  
-
-effect = genai.protos.Schema(
-  type=genai.protos.Type.OBJECT,
-  properties = {
-    'name': genai.protos.Schema(type=genai.protos.Type.STRING),
-    'adjustment': genai.protos.Schema(type=genai.protos.Type.STRING),
-    }
-  )
-
-video_edit = genai.protos.Schema(
-  type = genai.protos.Type.OBJECT,
-  properties = {
-    'video_name': genai.protos.Schema(type=genai.protos.Type.STRING),
-    'id': genai.protos.Schema(type=genai.protos.Type.NUMBER),
-    'start_time': genai.protos.Schema(type=genai.protos.Type.STRING),
-    'end_time': genai.protos.Schema(type=genai.protos.Type.STRING),
-    'edit': genai.protos.Schema(
-      type = genai.protos.Type.OBJECT,
-      properties = {
-        'type': genai.protos.Schema(type=genai.protos.Type.STRING)
-      }
-      ),
-    'effects': genai.protos.Schema(
-      type=genai.protos.Type.ARRAY,
-      items = effect
-      ),
-    'text': genai.protos.Schema(type=genai.protos.Type.STRING),
-    'transition': genai.protos.Schema(
-      type = genai.protos.Type.OBJECT,
-      properties = {
-        'type': genai.protos.Schema(type=genai.protos.Type.STRING)
-        }
-    )
-  }
-)
-
-video_edits = genai.protos.Schema(
-  type = genai.protos.Type.ARRAY,
-  items = video_edit
-)
-
-gemini_json = genai.protos.Schema(
-  type = genai.protos.Type.OBJECT,
-  properties = {
-    'video_edits': video_edits
-  }
-)
-
-edits = genai.protos.Tool(
-  function_declarations=[
-    genai.protos.FunctionDeclaration(
-      name='video_edits',
-      description='returns a json object of all the video edit settings',
-      parameters = video_edits
-    )
-  ]
-)
 
 model = genai.GenerativeModel(
   model_name="gemini-1.5-pro-exp-0801",
-  generation_config=generation_config,
-  tools = [edits]
+  generation_config=generation_config
 )
 
 
@@ -153,14 +69,15 @@ def process_videos():
             return jsonify({'error': 'Invalid user ID'}), 401
           
         # Download audio if any and prepare for the Gemini API
+        bucket = storage.bucket()
         audio_directory = f"users/{user_id}/projects/{project_id}/audios"
-        audio_paths = get_all_file_paths(audio_directory)
+        audio_paths = Firebase.get_all_file_paths(audio_directory, bucket)
         downloaded_audio_paths = dict()
         
 
         # Download videos and prepare data for Gemini API
         video_directory = f"users/{user_id}/projects/{project_id}/videos"
-        video_paths = get_all_file_paths(video_directory)
+        video_paths = Firebase.get_all_file_paths(video_directory, bucket)
         downloaded_video_paths = dict()
         video_data = []
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -172,7 +89,7 @@ def process_videos():
                 # Download the video
                 file_name = video_path.split('/')[-1]
                 file_path = os.path.join(temp_dir, file_name)
-                download_video(video_path, file_path)
+                Firebase.download_media(video_path, file_path, bucket)
 
                 # adds key-value pairs of file_name: file_path to a downloaded_video_paths dictionary
                 downloaded_video_paths[file_path] = file_path
@@ -180,11 +97,11 @@ def process_videos():
                 # Uploads video to Gemini
                 # gemini_video = upload_to_gemini(file_path)
                 # video_data.append(gemini_video)
-            file_name, audio_file_path = False
+            file_name, audio_file_path = False, False
             if len(audio_paths) > 0:
               file_name = audio_paths[-1].split('/')[-1]
               audio_file_path = os.path.join(temp_dir, file_name)
-              download_audio(audio_paths[-1], audio_file_path)
+              Firebase.download_media(audio_paths[-1], audio_file_path, bucket)
 
             # Concatenate video
             concatenated_video_path, video_durations, total_duration = concatenate_videos(downloaded_video_paths, temp_dir)
@@ -195,9 +112,9 @@ def process_videos():
             
 
             # upload concatenated video and audio to Gemini
-            gemini_video = upload_to_gemini(concatenated_video_path)
+            gemini_video = Gemini.upload_to_gemini(path=concatenated_video_path, genai=genai)
             if audio_file_path:
-              gemini_audio = upload_to_gemini(audio_file_path)
+              gemini_audio = Gemini.upload_to_gemini(path=audio_file_path, genai=genai)
             else:
               gemini_audio = None
             
@@ -218,12 +135,13 @@ def process_videos():
 
         # Prompt the Gemini API with all videos and the prompt
         try:
-          gemini_response = prompt_gemini_api(video_data[0], gemini_prompt, video_data[1], video_data[3])
+          gemini_response = Gemini.prompt_gemini_api(video_data[0], gemini_prompt, video_data[1], video_data[3], model)
           print(gemini_response)
 
             # Store Gemini response in Firestore
+          db = firestore.client()
           if prompt_id:
-            store_gemini_response(user_id, project_id, prompt_id, gemini_response)
+            Firebase.store_gemini_response(user_id, project_id, prompt_id, gemini_response, db)
 
 
           # Return the response to the Android app
