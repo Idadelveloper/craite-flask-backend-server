@@ -12,7 +12,7 @@ import textwrap
 import json
 import ffmpeg
 import traceback
-import utils
+import helpers
 
 
 class Gemini:
@@ -371,12 +371,12 @@ class Gemini:
         try:
             response = chat_session.send_message(new_prompt)
 
-            print(response.text)
-            res = response.text
-            lines = res.splitlines(keepends=True)
-            res = ''.join(lines[1:-1])
-            gemini_response_json = json.loads(res)
-            print(json.dumps(gemini_response_json, indent=4))
+            print("Raw Gemini Response:", response.text)
+
+            # Directly parse the response as JSON
+            gemini_response_json = json.loads(response.text.strip()) 
+
+            print("Parsed JSON Response:", json.dumps(gemini_response_json, indent=4))
 
             # Process Gemini response and create video edits using function calls
             video_edits = []
@@ -385,10 +385,10 @@ class Gemini:
                 _id = edit['id']
                 start_time = edit['start_time']
                 end_time = edit['end_time']
-                effects = [return_effect(effect['name'], effect['adjustment']) for effect in edit['effects']]
-                text = [return_text(text['text'], text['font_size'], text['text_color'], text['background_color']) for text in edit['text']]
+                effects = [helpers.return_effect(effect['name'], effect['adjustment']) for effect in edit['effects']]
+                text = [helpers.return_text(text['text'], text['font_size'], text['text_color'], text['background_color']) for text in edit['text']]
                 transition = edit['transition']
-                video_edits.append(return_video_edit(_id, video_name, start_time, end_time, effects, text, transition))
+                video_edits.append(helpers.return_video_edit(_id, video_name, start_time, end_time, effects, text, transition))
             
             audio_edits = {
                 "start_time": "",

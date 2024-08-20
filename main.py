@@ -145,6 +145,7 @@ def process_videos():
 
 
           # Return the response to the Android app
+          print(gemini_response)
           return {'gemini_response': gemini_response}
         except Exception as e:
           print(f"Error calling Gemini API: {e}")
