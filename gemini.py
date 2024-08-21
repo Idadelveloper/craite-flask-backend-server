@@ -367,16 +367,11 @@ class Gemini:
             },
         ]
         )
-        print("sending request...")
         try:
             response = chat_session.send_message(new_prompt)
 
-            print("Raw Gemini Response:", response.text)
-
             # Directly parse the response as JSON
             gemini_response_json = json.loads(response.text.strip()) 
-
-            print("Parsed JSON Response:", json.dumps(gemini_response_json, indent=4))
 
             # Process Gemini response and create video edits using function calls
             video_edits = []

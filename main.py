@@ -95,8 +95,6 @@ def process_videos():
                 downloaded_video_paths[file_path] = file_path
 
                 # Uploads video to Gemini
-                # gemini_video = upload_to_gemini(file_path)
-                # video_data.append(gemini_video)
             file_name, audio_file_path = False, False
             if len(audio_paths) > 0:
               file_name = audio_paths[-1].split('/')[-1]
@@ -105,12 +103,7 @@ def process_videos():
 
             # Concatenate video
             concatenated_video_path, video_durations, total_duration = concatenate_videos(downloaded_video_paths, temp_dir)
-            print(concatenated_video_path)
-            print(video_durations)
-            print(total_duration)
-            print(audio_file_path)
             
-
             # upload concatenated video and audio to Gemini
             gemini_video = Gemini.upload_to_gemini(path=concatenated_video_path, genai=genai)
             if audio_file_path:
